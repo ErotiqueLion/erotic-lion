@@ -14,15 +14,22 @@
         }
 
         /* 全体設定 */
-        html, body {
+        html {
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            background-color: var(--deep-void);
+        }
+
+        body {
             margin: 0;
             padding: 0;
             width: 100%;
             min-height: 100vh;
-            background-color: var(--deep-void);
             color: #fff;
             font-family: 'Arial Black', 'Inter', 'Hiragino Kaku Gothic ProN', sans-serif;
             overflow-x: hidden;
+            position: relative;
         }
 
         /* 液体のようなサイケデリック背景 */
@@ -30,8 +37,8 @@
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            width: 100vw;
+            height: 100vh;
             z-index: -1;
             background: linear-gradient(45deg, #0a0a0a, #1a0033, #33001a, #0a0a0a);
             background-size: 400% 400%;
@@ -61,6 +68,7 @@
             position: relative;
             background: rgba(0,0,0,0.6);
             border-bottom: 8px solid var(--acid-yellow);
+            box-sizing: border-box;
         }
 
         .title-container {
@@ -113,14 +121,16 @@
             border-top-color: var(--electric-blue);
         }
 
-        /* ゲームグリッド */
+        /* ゲームグリッド：中央寄せを強化 */
         .game-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 40px;
             padding: 60px 20px;
-            max-width: 1400px;
+            max-width: 1200px; /* 少し幅を絞って中央感を出します */
             margin: 0 auto;
+            justify-content: center;
+            box-sizing: border-box;
         }
 
         /* 非対称カードデザイン */
@@ -222,13 +232,18 @@
             margin-top: 100px;
             transform: skewY(-1deg);
             letter-spacing: 5px;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         /* モバイル対応 */
         @media (max-width: 768px) {
             .header h1 { font-size: 2.5rem; }
             .fang { display: none; }
-            .game-grid { grid-template-columns: 1fr; }
+            .game-grid { 
+                grid-template-columns: 1fr;
+                padding: 40px 20px;
+            }
         }
     </style>
 </head>
