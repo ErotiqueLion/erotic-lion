@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A gift from the erotic lion</title>
+    <style>
+        :root {
+            --acid-yellow: #dbff00;
+            --hot-pink: #ff007a;
+            --electric-blue: #00f0ff;
+            --deep-void: #0a0a0a;
+            --psycho-purple: #7000ff;
+        }
+
+        /* 全体設定 */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            min-height: 100vh;
+            background-color: var(--deep-void);
+            color: #fff;
+            font-family: 'Arial Black', 'Inter', 'Hiragino Kaku Gothic ProN', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* 液体のようなサイケデリック背景 */
+        .liquid-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: linear-gradient(45deg, #0a0a0a, #1a0033, #33001a, #0a0a0a);
+            background-size: 400% 400%;
+            animation: fluidMove 15s ease infinite;
+        }
+
+        @keyframes fluidMove {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* ノイズエフェクト */
+        .liquid-bg::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.08;
+            pointer-events: none;
+        }
+
+        /* 個性的なヘッダー */
+        .header {
+            padding: 80px 20px;
+            text-align: center;
+            position: relative;
+            background: rgba(0,0,0,0.6);
+            border-bottom: 8px solid var(--acid-yellow);
+        }
+
+        .title-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .header h1 {
+            font-size: clamp(2rem, 10vw, 4.5rem);
+            margin: 0;
+            line-height: 0.9;
+            text-transform: uppercase;
+            color: #fff;
+            -webkit-text-stroke: 1.5px var(--hot-pink);
+            position: relative;
+            z-index: 2;
+            filter: drop-shadow(0 0 15px var(--hot-pink));
+        }
+
+        .header h1 span {
+            display: block;
+            color: var(--acid-yellow);
+            -webkit-text-stroke: 0;
+            font-size: 0.4em;
+            letter-spacing: 12px;
+            margin-top: 15px;
+            font-weight: 900;
+            text-shadow: none;
+        }
+
+        /* ライオンの牙装飾 */
+        .fang {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-left: 50px solid transparent;
+            border-right: 50px solid transparent;
+            border-top: 100px solid var(--hot-pink);
+            top: -20px;
+            left: -50px;
+            z-index: 1;
+            transform: rotate(-15deg);
+            opacity: 0.7;
+        }
+
+        .fang-right {
+            left: auto;
+            right: -50px;
+            transform: rotate(15deg);
+            border-top-color: var(--electric-blue);
+        }
+
+        /* ゲームグリッド */
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 40px;
+            padding: 60px 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* 非対称カードデザイン */
+        .game-card {
+            background: #111;
+            position: relative;
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+            clip-path: polygon(0 5%, 100% 0, 95% 100%, 5% 95%);
+            border: 2px solid #222;
+            text-decoration: none;
+            display: block;
+            color: inherit;
+        }
+
+        .game-card:hover {
+            clip-path: polygon(5% 0, 95% 5%, 100% 95%, 0 100%);
+            transform: translateY(-10px) scale(1.02);
+            border-color: var(--acid-yellow);
+            box-shadow: 0 0 40px rgba(219, 255, 0, 0.2);
+        }
+
+        .thumbnail {
+            width: 100%;
+            aspect-ratio: 16/10;
+            background: linear-gradient(135deg, var(--psycho-purple), var(--hot-pink));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .thumbnail::before {
+            content: "";
+            position: absolute;
+            width: 150%;
+            height: 150%;
+            background: conic-gradient(from 180deg, transparent, var(--electric-blue), transparent);
+            animation: rotateThumbnail 6s linear infinite;
+        }
+
+        @keyframes rotateThumbnail {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .thumbnail-content {
+            position: relative;
+            z-index: 2;
+            font-size: 5rem;
+            filter: drop-shadow(0 0 10px rgba(0,0,0,0.8));
+        }
+
+        .info {
+            padding: 25px;
+            background: #000;
+        }
+
+        .info h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: var(--acid-yellow);
+            text-transform: uppercase;
+            font-style: italic;
+        }
+
+        .info p {
+            font-size: 0.9rem;
+            color: #888;
+            margin: 15px 0;
+            line-height: 1.6;
+        }
+
+        .play-btn {
+            display: block;
+            text-align: center;
+            padding: 12px;
+            background: var(--hot-pink);
+            color: #fff;
+            font-weight: 900;
+            letter-spacing: 2px;
+            transition: 0.3s;
+            clip-path: polygon(5% 0, 100% 0, 95% 100%, 0 100%);
+        }
+
+        .game-card:hover .play-btn {
+            background: var(--electric-blue);
+            color: #000;
+        }
+
+        /* フッター */
+        footer {
+            background: var(--acid-yellow);
+            color: #000;
+            padding: 30px;
+            text-align: center;
+            font-weight: 900;
+            text-transform: uppercase;
+            margin-top: 100px;
+            transform: skewY(-1deg);
+            letter-spacing: 5px;
+        }
+
+        /* モバイル対応 */
+        @media (max-width: 768px) {
+            .header h1 { font-size: 2.5rem; }
+            .fang { display: none; }
+            .game-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="liquid-bg"></div>
+
+    <header class="header">
+        <div class="title-container">
+            <div class="fang"></div>
+            <div class="fang fang-right"></div>
+            <h1>A GIFT FROM THE<br>EROTIC LION<span>Wild Psycho Arcade</span></h1>
+        </div>
+    </header>
+
+    <div class="game-grid">
+        <!-- GAME 1 -->
+        <a href="games/lion-heart.html" class="game-card">
+            <div class="thumbnail">
+                <div class="thumbnail-content">🦁</div>
+            </div>
+            <div class="info">
+                <h2>LION HEART</h2>
+                <p>捕食者の視線に震える。野生の衝動を解放する究極の官能パズル。</p>
+                <div class="play-btn">ENTER JUNGLE</div>
+            </div>
+        </a>
+
+        <!-- GAME 2 -->
+        <a href="games/acid-tongue.html" class="game-card">
+            <div class="thumbnail">
+                <div class="thumbnail-content">👅</div>
+            </div>
+            <div class="info">
+                <h2>ACID TONGUE</h2>
+                <p>極彩色の快楽。クリックするたびに色が弾けるサイケデリック・アクション。</p>
+                <div class="play-btn">START TRIP</div>
+            </div>
+        </a>
+
+        <!-- GAME 3 -->
+        <a href="games/psycho-loop.html" class="game-card">
+            <div class="thumbnail">
+                <div class="thumbnail-content">🌀</div>
+            </div>
+            <div class="info">
+                <h2>PSYCHO LOOP</h2>
+                <p>終わらない夜、繰り返される悦び。ループの果てに何を見る？</p>
+                <div class="play-btn">BREAK LOOP</div>
+            </div>
+        </a>
+    </div>
+
+    <footer>
+        Stay Wild, Stay Erotic.
+    </footer>
+</body>
+</html>
