@@ -13,7 +13,7 @@
             --psycho-purple: #7000ff;
         }
 
-        /* 全体設定：スクロールバーの重複を防止 */
+        /* 全体設定：スクロールバーの重複を完全に防止 */
         *, *::before, *::after {
             box-sizing: border-box;
         }
@@ -22,20 +22,21 @@
             margin: 0;
             padding: 0;
             background-color: var(--deep-void);
-            overflow-x: hidden; /* 横スクロールのみ禁止 */
-            overflow-y: scroll; /* 常に縦スクロールバーを表示してガタつき防止 */
+            overflow-x: hidden;
+            overflow-y: scroll; /* 常にスクロールバーの溝を確保してガタつきを防止 */
             width: 100%;
+            height: 100%;
         }
 
         body {
             margin: 0;
             padding: 0;
             width: 100%;
-            min-height: 100vh;
+            min-height: 100%;
             color: #fff;
             font-family: 'Arial Black', 'Inter', 'Hiragino Kaku Gothic ProN', sans-serif;
             position: relative;
-            overflow: visible; /* bodyでのスクロール判定を無効化 */
+            overflow: visible;
         }
 
         /* 液体のようなサイケデリック背景 */
@@ -43,7 +44,7 @@
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%; /* 100vwから100%に変更（スクロールバーとの干渉防止） */
+            width: 100%; 
             height: 100%;
             z-index: -1;
             background: linear-gradient(45deg, #0a0a0a, #1a0033, #33001a, #0a0a0a);
@@ -262,6 +263,7 @@
     </header>
 
     <div class="game-grid">
+        <!-- 第1ゲーム：LION HEART (既に完成しているゲームに接続) -->
         <a href="games/lion-heart.html" class="game-card">
             <div class="thumbnail">
                 <div class="thumbnail-content">🦁</div>
@@ -269,31 +271,33 @@
             <div class="info">
                 <h2>LION HEART</h2>
                 <p>捕食者の視線に震える。野生の衝動を解放する究極の官能パズル。</p>
-                <div class="play-btn">ENTER JUNGLE</div>
+                <div class="play-btn">PLAY NOW</div>
             </div>
         </a>
 
-        <a href="games/acid-tongue.html" class="game-card">
+        <!-- 第2ゲーム（開発中） -->
+        <div class="game-card" style="opacity: 0.6; cursor: not-allowed;">
             <div class="thumbnail">
                 <div class="thumbnail-content">👅</div>
             </div>
             <div class="info">
                 <h2>ACID TONGUE</h2>
-                <p>極彩色の快楽。クリックするたびに色が弾けるサイケデリック・アクション。</p>
-                <div class="play-btn">START TRIP</div>
+                <p>極彩色の快楽。クリックするたびに色が弾けるサイケデリック・アクション。（準備中）</p>
+                <div class="play-btn" style="background: #444;">COMING SOON</div>
             </div>
-        </a>
+        </div>
 
-        <a href="games/psycho-loop.html" class="game-card">
+        <!-- 第3ゲーム（開発中） -->
+        <div class="game-card" style="opacity: 0.6; cursor: not-allowed;">
             <div class="thumbnail">
                 <div class="thumbnail-content">🌀</div>
             </div>
             <div class="info">
                 <h2>PSYCHO LOOP</h2>
-                <p>終わらない夜、繰り返される悦び。ループの果てに何を見る？</p>
-                <div class="play-btn">BREAK LOOP</div>
+                <p>終わらない夜、繰り返される悦び。ループの果てに何を見る？（準備中）</p>
+                <div class="play-btn" style="background: #444;">COMING SOON</div>
             </div>
-        </a>
+        </div>
     </div>
 
     <footer>
