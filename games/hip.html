@@ -132,6 +132,27 @@
             transform: scale(0.95);
         }
 
+        /* 戻るボタンのスタイル */
+        #back-link {
+            margin-top: 25px;
+            color: #d4af37;
+            text-decoration: none;
+            font-family: 'Rye', serif;
+            font-size: 20px;
+            border: 2px solid #d4af37;
+            padding: 8px 30px;
+            border-radius: 5px;
+            background: rgba(0, 0, 0, 0.6);
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        #back-link:hover {
+            background: #d4af37;
+            color: #000;
+            box-shadow: 0 0 10px #d4af37;
+        }
+
         .hit-text {
             position: absolute;
             color: #ff0000;
@@ -168,6 +189,8 @@
         <h1 id="title-text">THE SPANKING<br>CIRCUS</h1>
         <p id="desc-text">Ladies and Gentlemen...<br>今宵の出し物は「尻叩き」でございます。<br>パンツを吹き飛ばし、悲鳴を上げさせましょう...<br><span class="warning">※異形の尻（おじさん）には触れてはいけません...</span></p>
         <button id="start-btn" class="start-btn">ENTER SHOW</button>
+        <!-- 戻るボタン -->
+        <a id="back-link" href="https://erotiquelion.github.io/erotic-lion/">EXIT CIRCUS</a>
     </div>
 
     <script>
@@ -692,7 +715,8 @@
                     this.trunksGroup.visible = false;
                     this.hairGroup.visible = false;
                     
-                    const colors = [0xffffff, 0xff1493, 0x00bfff, 0x111111, 0xff0000];
+                    // パンティの色
+                    const colors = [0xff1493, 0x00bfff, 0x111111, 0xff0000, 0x800080];
                     const color = colors[Math.floor(Math.random() * colors.length)];
                     this.pantyMat.color.setHex(color);
                     
@@ -724,8 +748,24 @@
                     }
                 } else if (this.state === 'HIT') {
                     this.timer += delta;
-                    this.mesh.rotation.z = (Math.random() - 0.5) * 0.6;
-                    if (this.timer > 0.4 && this.type !== 'UNCLE') {
+                    
+                    // セクシーな揺れ（Jiggle Physics）
+                    // 減衰係数
+                    const decay = Math.max(0, 1 - this.timer * 2.5);
+                    
+                    // 伸縮（Squash & Stretch）: 縦横に逆位相で伸縮させる
+                    const frequency = 25; // 揺れの速さ
+                    const elasticity = 0.15; // 弾力性
+                    const squash = Math.sin(this.timer * frequency) * elasticity * decay;
+                    this.mesh.scale.set(1 + squash, 1 - squash, 1);
+                    
+                    // 横揺れ（Wobble）
+                    this.mesh.rotation.z = Math.sin(this.timer * 20) * 0.15 * decay;
+
+                    if (this.timer > 0.5 && this.type !== 'UNCLE') {
+                        // 形状を戻す
+                        this.mesh.scale.set(1,1,1);
+                        this.mesh.rotation.z = 0;
                         this.state = 'HIDING';
                     }
                 }
@@ -884,9 +924,9 @@
             let text, pitch, rate;
 
             if (type === 'UNCLE') {
-                text = "グヘェ...ヒッヒッ..."; // 不気味な笑い
-                pitch = 0.1; // 極低音
-                rate = 0.4; // 超スロー
+                text = "ブフォオォォッ！...グヒヒヒ..."; // より汚く、不気味に
+                pitch = 0.3; // 聞き取りやすく少し上げるが低いまま
+                rate = 0.6; // 少しねっとり
             } else {
                 const texts = ["あぁっ", "きゃっ", "もうっ", "いやっ"];
                 text = texts[Math.floor(Math.random() * texts.length)];
