@@ -13,12 +13,18 @@
             --psycho-purple: #7000ff;
         }
 
-        /* 全体設定 */
+        /* 全体設定：スクロールバーの重複を防止 */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
         html {
             margin: 0;
             padding: 0;
-            overflow-x: hidden;
             background-color: var(--deep-void);
+            overflow-x: hidden; /* 横スクロールのみ禁止 */
+            overflow-y: scroll; /* 常に縦スクロールバーを表示してガタつき防止 */
+            width: 100%;
         }
 
         body {
@@ -28,8 +34,8 @@
             min-height: 100vh;
             color: #fff;
             font-family: 'Arial Black', 'Inter', 'Hiragino Kaku Gothic ProN', sans-serif;
-            overflow-x: hidden;
             position: relative;
+            overflow: visible; /* bodyでのスクロール判定を無効化 */
         }
 
         /* 液体のようなサイケデリック背景 */
@@ -37,8 +43,8 @@
             position: fixed;
             top: 0;
             left: 0;
-            width: 100vw;
-            height: 100vh;
+            width: 100%; /* 100vwから100%に変更（スクロールバーとの干渉防止） */
+            height: 100%;
             z-index: -1;
             background: linear-gradient(45deg, #0a0a0a, #1a0033, #33001a, #0a0a0a);
             background-size: 400% 400%;
@@ -68,7 +74,6 @@
             position: relative;
             background: rgba(0,0,0,0.6);
             border-bottom: 8px solid var(--acid-yellow);
-            box-sizing: border-box;
         }
 
         .title-container {
@@ -121,16 +126,15 @@
             border-top-color: var(--electric-blue);
         }
 
-        /* ゲームグリッド：中央寄せを強化 */
+        /* ゲームグリッド */
         .game-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 40px;
             padding: 60px 20px;
-            max-width: 1200px; /* 少し幅を絞って中央感を出します */
+            max-width: 1200px;
             margin: 0 auto;
             justify-content: center;
-            box-sizing: border-box;
         }
 
         /* 非対称カードデザイン */
@@ -233,7 +237,6 @@
             transform: skewY(-1deg);
             letter-spacing: 5px;
             width: 100%;
-            box-sizing: border-box;
         }
 
         /* モバイル対応 */
@@ -259,7 +262,6 @@
     </header>
 
     <div class="game-grid">
-        <!-- GAME 1 -->
         <a href="games/lion-heart.html" class="game-card">
             <div class="thumbnail">
                 <div class="thumbnail-content">🦁</div>
@@ -271,7 +273,6 @@
             </div>
         </a>
 
-        <!-- GAME 2 -->
         <a href="games/acid-tongue.html" class="game-card">
             <div class="thumbnail">
                 <div class="thumbnail-content">👅</div>
@@ -283,7 +284,6 @@
             </div>
         </a>
 
-        <!-- GAME 3 -->
         <a href="games/psycho-loop.html" class="game-card">
             <div class="thumbnail">
                 <div class="thumbnail-content">🌀</div>
