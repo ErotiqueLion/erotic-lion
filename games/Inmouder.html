@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Inmouder-Game / 陰毛だぁーげーむ</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root { 
+            --primary: #ff1744; 
+            --gold: #ffd700;
+            --dark: #020000;
+            --white: #ffffff;
+        }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: var(--dark); 
+            font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Hiragino Mincho ProN', serif; 
+            touch-action: none; 
+            user-select: none; 
+        }
+        
+        body::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, transparent 15%, rgba(0,0,0,0.95) 100%);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .overlay { 
+            position: absolute; 
+            top: 0; left: 0; width: 100%; height: 100%; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            z-index: 50; transition: opacity 0.5s; 
+        }
+        
+        #opening { 
+            background: radial-gradient(circle, #2a0000 0%, #000 100%); 
+            border: 12px double var(--gold);
+            box-sizing: border-box;
+        }
+
+        .lang-switch {
+            position: absolute;
+            top: 30px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+        .lang-btn {
+            padding: 5px 15px;
+            background: rgba(0,0,0,0.5);
+            color: var(--gold);
+            border: 1px solid var(--gold);
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .lang-btn.active {
+            background: var(--gold);
+            color: #000;
+        }
+
+        .logo-container { text-align: center; margin-bottom: 40px; }
+        .logo-main { 
+            font-size: clamp(35px, 10vw, 90px); 
+            font-weight: 900; 
+            color: var(--primary); 
+            text-shadow: 0 0 20px var(--primary), 3px 3px 0 var(--gold); 
+            letter-spacing: 10px; 
+            margin: 10px 0;
+            font-style: italic;
+        }
+        .logo-sub { 
+            font-size: 16px; 
+            color: var(--gold); 
+            letter-spacing: 4px; 
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        #msg-box { 
+            background: rgba(10, 0, 0, 0.98); 
+            padding: 40px; 
+            border: 4px ridge var(--gold); 
+            border-radius: 2px; 
+            box-shadow: 0 0 70px rgba(255, 0, 0, 0.5); 
+            text-align: center; 
+            min-width: 320px; 
+        }
+        
+        .btn { 
+            padding: 18px 45px; 
+            background: linear-gradient(to bottom, #d50000, #4a0000);
+            color: var(--gold); 
+            border: 2px solid var(--gold); 
+            cursor: pointer; 
+            font-size: 22px; 
+            font-weight: bold; 
+            margin: 12px; 
+            transition: all 0.3s; 
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+        .btn:hover { filter: brightness(1.4); transform: scale(1.05); }
+        .btn-sub { background: #222; border-color: #777; color: #aaa; font-size: 16px; }
+
+        #game-ui { 
+            position: absolute; 
+            top: 25px; left: 25px; right: 25px; 
+            color: var(--gold); 
+            pointer-events: none; 
+            z-index: 10; 
+            display: none; 
+        }
+        .stats-bar { display: flex; justify-content: space-between; align-items: center; }
+        .stat-group { display: flex; flex-direction: column; }
+        .stat-label { font-size: 12px; color: #fff; opacity: 0.7; }
+        .stat-value { font-size: 28px; font-weight: bold; text-shadow: 2px 2px #000; }
+        #lives-display { color: var(--primary); font-size: 32px; letter-spacing: 5px; }
+
+        .btn-quit {
+            pointer-events: auto;
+            background: rgba(0,0,0,0.8);
+            color: var(--primary);
+            border: 1px solid var(--primary);
+            padding: 10px 20px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        #controls { position: absolute; bottom: 40px; left: 0; right: 0; display: flex; justify-content: space-around; align-items: center; padding: 0 20px; pointer-events: none; z-index: 10; opacity: 0; transition: opacity 0.5s; }
+        .ctrl-btn { width: 90px; height: 90px; background: rgba(0,0,0,0.7); border: 2px solid var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--gold); font-size: 28px; font-weight: bold; pointer-events: auto; backdrop-filter: blur(5px); }
+        #btn-fire { width: 125px; height: 125px; background: rgba(255,23,68,0.1); border-color: var(--primary); color: var(--primary); font-size: 30px; }
+
+        @media (min-width: 768px) { #controls { display: none; } }
+    </style>
+</head>
+<body>
+
+<div id="opening" class="overlay">
+    <div class="lang-switch">
+        <div id="lang-en" class="lang-btn active" onclick="setLanguage('en')">ENGLISH</div>
+        <div id="lang-jp" class="lang-btn" onclick="setLanguage('jp')">日本語</div>
+    </div>
+    <div class="logo-container">
+        <div id="logo-intro" class="logo-sub">Ladies and Gentlemen...</div>
+        <h1 id="logo-main" class="logo-main">Inmouder-Game</h1>
+        <div id="logo-tagline" class="logo-sub">THE EROTIC SPECTACLE</div>
+    </div>
+    <button id="btn-start" class="btn" onclick="startGame()">ENTER THE SHOW</button>
+</div>
+
+<div id="result-overlay" class="overlay" style="display:none;">
+    <div id="msg-box">
+        <h2 id="status-title" style="color: var(--primary); font-size: 44px; margin: 0;">ACT OVER</h2>
+        <p id="status-desc" style="color: #fff; font-size: 20px; margin: 20px 0 30px 0;">SCORE: 0</p>
+        <div style="display: flex; flex-direction: column;">
+            <button id="btn-replay" class="btn" onclick="startGame()">REPLAY SHOW</button>
+            <button id="btn-back" class="btn btn-sub" onclick="backToMenu()">MAIN HALL</button>
+        </div>
+    </div>
+</div>
+
+<div id="game-ui">
+    <div class="stats-bar">
+        <div class="stat-group">
+            <span id="ui-label-score" class="stat-label">SCORE</span>
+            <span id="score-val" class="stat-value">0</span>
+        </div>
+        <div id="lives-display">❤❤❤</div>
+        <button id="btn-quit-ui" class="btn-quit" onclick="backToMenu()">QUIT</button>
+    </div>
+    <div style="margin-top: 10px;">
+        <span id="ui-label-act" style="font-weight: bold; font-size: 14px;">ACT</span> 
+        <span id="stage-val" style="font-weight: bold; font-size: 20px;">1</span>
+    </div>
+</div>
+
+<div id="controls">
+    <div class="ctrl-btn" id="btn-left">←</div>
+    <div class="ctrl-btn" id="btn-fire">FIRE</div>
+    <div class="ctrl-btn" id="btn-right">→</div>
+</div>
+
+<script>
+    // --- Localization ---
+    const i18n = {
+        en: { title: "Inmouder-Game", intro: "Ladies and Gentlemen...", tagline: "THE EROTIC SPECTACLE", startBtn: "ENTER THE SHOW", score: "SCORE", act: "ACT", quit: "QUIT", gameOver: "ACT OVER", win: "SUCCESS", replay: "REPLAY SHOW", menu: "MAIN HALL", finalScore: "FINAL SCORE" },
+        jp: { title: "陰毛だぁーげーむ", intro: "紳士淑女の皆様...", tagline: "禁断の見世物へようこそ", startBtn: "入場する", score: "スコア", act: "幕", quit: "中止", gameOver: "終演", win: "浄化完了", replay: "もう一度観る", menu: "ロビーへ戻る", finalScore: "最終スコア" }
+    };
+
+    let language = 'en';
+
+    function setLanguage(lang) {
+        language = lang;
+        document.getElementById('lang-en').className = lang === 'en' ? 'lang-btn active' : 'lang-btn';
+        document.getElementById('lang-jp').className = lang === 'jp' ? 'lang-btn active' : 'lang-btn';
+        const t = i18n[lang];
+        document.getElementById('logo-intro').innerText = t.intro;
+        document.getElementById('logo-main').innerText = t.title;
+        document.getElementById('logo-tagline').innerText = t.tagline;
+        document.getElementById('btn-start').innerText = t.startBtn;
+        document.getElementById('ui-label-score').innerText = t.score;
+        document.getElementById('ui-label-act').innerText = t.act;
+        document.getElementById('btn-quit-ui').innerText = t.quit;
+        document.getElementById('btn-replay').innerText = t.replay;
+        document.getElementById('btn-back').innerText = t.menu;
+    }
+
+    // --- constants ---
+    const INVADER_ROWS = 4;
+    const INVADER_COLS = 5;
+    const PLAYER_LIMIT_X = 18;
+    const CAM_ORIGIN_Z = 50;
+    const CAM_ORIGIN_Y = 22;
+
+    // --- variables ---
+    let scene, camera, renderer, player, girl, leftLeg, rightLeg, skirtMesh, clock;
+    let invaders = [], bullets = [], bunkers = [], ufos = [];
+    let score = 0, lives = 3, stage = 1, isGameOver = true;
+    let moveLeft = false, moveRight = false, audioCtx = null;
+    let currentInvaderSpeed = 0.02;
+    let playerDroopAmount = 0;
+    let cachedHitSoundBuffer = null;
+    let hitCounter = 0;
+
+    // --- Gemini TTS Utility ---
+    const apiKey = "";
+    async function fetchTts(text) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+        const payload = {
+            contents: [{ parts: [{ text: `Say in an extremely high-pitched, anime-style cute female voice, sexy and breathy: ${text}` }] }],
+            generationConfig: {
+                responseModalities: ["AUDIO"],
+                speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Leda" } } }
+            },
+            model: "gemini-2.5-flash-preview-tts"
+        };
+
+        let lastErr;
+        for (let i = 0; i < 5; i++) {
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                const pcmBase64 = result.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                if (!pcmBase64) throw new Error("No audio data");
+                return pcmBase64;
+            } catch (e) {
+                lastErr = e;
+                await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
+            }
+        }
+        throw lastErr;
+    }
+
+    function base64ToUint8Array(base64) {
+        const binaryString = window.atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+        return bytes;
+    }
+
+    async function loadSexyVoice() {
+        if (cachedHitSoundBuffer) return;
+        try {
+            const base64 = await fetchTts("Ah!");
+            const arrayBuffer = base64ToUint8Array(base64).buffer;
+            const wavHeader = createWavHeader(arrayBuffer.byteLength, 24000);
+            const wavBuffer = new Uint8Array(wavHeader.length + arrayBuffer.byteLength);
+            wavBuffer.set(wavHeader);
+            wavBuffer.set(new Uint8Array(arrayBuffer), wavHeader.length);
+            cachedHitSoundBuffer = await audioCtx.decodeAudioData(wavBuffer.buffer);
+        } catch (err) { console.error("TTS failed", err); }
+    }
+
+    function createWavHeader(dataLength, sampleRate) {
+        const header = new ArrayBuffer(44);
+        const view = new DataView(header);
+        view.setUint32(0, 0x52494646, false); view.setUint32(4, 36 + dataLength, true); view.setUint32(8, 0x57415645, false); view.setUint32(12, 0x666d7420, false); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true); view.setUint32(36, 0x64617461, false); view.setUint32(40, dataLength, true);
+        return new Uint8Array(header);
+    }
+
+    // --- initialization ---
+    function init() {
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x000000); 
+        scene.fog = new THREE.Fog(0x000000, 30, 140);
+
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        resetCamera();
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.body.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xff0000, 0.3)); 
+        const mainSpot = new THREE.SpotLight(0xffffff, 4.0, 300, Math.PI/6, 0.3);
+        mainSpot.position.set(0, 100, 50);
+        scene.add(mainSpot);
+        const fillSpot = new THREE.PointLight(0xff1744, 2.5, 120);
+        fillSpot.position.set(0, 30, 20);
+        scene.add(fillSpot);
+
+        // Player model (Restored size and significantly lower position)
+        const skinMat = new THREE.MeshPhongMaterial({ color: 0xffdbac, specular: 0x888888, shininess: 50 });
+        const glansMat = new THREE.MeshPhongMaterial({ color: 0xffadad, specular: 0xffffff, shininess: 120 });
+        player = new THREE.Group();
+        // サイズを元（大きめ）に戻す
+        const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.85, 4.5, 20), skinMat); shaft.position.y = 2.25; player.add(shaft);
+        const head = new THREE.Mesh(new THREE.SphereGeometry(1.0, 20, 20, 0, Math.PI*2, 0, Math.PI*0.75), glansMat); head.position.y = 4.2; player.add(head);
+        const b1 = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 16), skinMat); b1.position.set(-1.1, 0.7, 0); player.add(b1);
+        const b2 = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 16), skinMat); b2.position.set(1.1, 0.7, 0); player.add(b2);
+        
+        player.position.y = -10; // 位置をさらに下げた
+        scene.add(player);
+
+        // Woman Model
+        girl = new THREE.Group();
+        const skirtMat = new THREE.MeshStandardMaterial({ color: 0x3a0000, side: THREE.DoubleSide, roughness: 0.1, metalness: 0.5 });
+        const sexySkinMat = new THREE.MeshStandardMaterial({ color: 0xffe0bd, roughness: 0.1, metalness: 0.2, emissive: 0x220000 });
+        const hipGeo = new THREE.SphereGeometry(3.2, 32, 32); hipGeo.scale(1.2, 0.95, 1.25);
+        girl.add(new THREE.Mesh(hipGeo, sexySkinMat));
+        const skirtPoints = [];
+        for (let i = 0; i <= 15; i++) {
+            const p = i / 15;
+            const r = 2.0 + Math.pow(p, 2.2) * 6.0; 
+            skirtPoints.push(new THREE.Vector2(r, -p * 8.5));
+        }
+        const skirtGeo = new THREE.LatheGeometry(skirtPoints, 64);
+        const skirtPos = skirtGeo.attributes.position;
+        for (let i = 0; i < skirtPos.count; i++) {
+            const v = new THREE.Vector3().fromBufferAttribute(skirtPos, i);
+            const angle = Math.atan2(v.z, v.x);
+            const dist = Math.sqrt(v.x * v.x + v.z * v.z);
+            const pleat = Math.sin(angle * 24) * 0.22 * (dist / 8.0);
+            v.x += Math.cos(angle) * pleat; v.z += Math.sin(angle) * pleat;
+            skirtPos.setXYZ(i, v.x, v.y, v.z);
+        }
+        skirtPos.needsUpdate = true;
+        skirtMesh = new THREE.Mesh(skirtGeo, skirtMat);
+        skirtMesh.position.y = 1.0; girl.add(skirtMesh);
+
+        function createLeg(xOffset, rotZ) {
+            const pts = [new THREE.Vector2(1.2, 0), new THREE.Vector2(1.35, -3.5), new THREE.Vector2(1.05, -9), new THREE.Vector2(0.72, -13), new THREE.Vector2(1.0, -18), new THREE.Vector2(0.5, -24), new THREE.Vector2(0.65, -25.5)];
+            const leg = new THREE.Mesh(new THREE.LatheGeometry(pts, 32), sexySkinMat);
+            leg.position.set(xOffset, 0, 0); leg.rotation.z = rotZ; return leg;
+        }
+        leftLeg = createLeg(-1.55, 0.04); rightLeg = createLeg(1.55, -0.04);
+        girl.add(leftLeg); girl.add(rightLeg);
+        girl.position.y = 52; scene.add(girl);
+
+        clock = new THREE.Clock();
+        window.addEventListener('resize', onWindowResize);
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        setupMobileControls();
+        animate();
+    }
+
+    function resetCamera() {
+        camera.position.set(0, CAM_ORIGIN_Y, CAM_ORIGIN_Z);
+        camera.lookAt(0, 18, 0);
+    }
+
+    function initAudio() { 
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        loadSexyVoice();
+    }
+
+    function playShootSound() {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
+        osc.type = 'sine'; osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1800, audioCtx.currentTime + 0.1);
+        g.gain.setValueAtTime(0.2, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+        osc.connect(g); g.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.12);
+    }
+
+    function playHitSound() {
+        if (!audioCtx) return;
+        hitCounter++;
+        if (hitCounter % 3 !== 0) return; // 3回に1回だけ再生
+
+        if (cachedHitSoundBuffer) {
+            const source = audioCtx.createBufferSource();
+            source.buffer = cachedHitSoundBuffer;
+            source.playbackRate.value = 1.2; // さらに高音にする
+            source.connect(audioCtx.destination);
+            source.start(0);
+        } else {
+            // Fallback
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(500, now); osc.frequency.exponentialRampToValueAtTime(400, now + 0.4);
+            g.gain.setValueAtTime(0.2, now); g.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+            osc.connect(g); g.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.4);
+        }
+    }
+
+    function playCreepySound() {
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        for (let i = 0; i < 3; i++) {
+            const start = now + i * 0.15; const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, start); osc.frequency.linearRampToValueAtTime(140, start + 0.1);
+            g.gain.setValueAtTime(0, start); g.gain.linearRampToValueAtTime(0.15, start + 0.02); g.gain.linearRampToValueAtTime(0, start + 0.12);
+            osc.connect(g); g.connect(audioCtx.destination); osc.start(start); osc.stop(start + 0.15);
+        }
+    }
+
+    function startGame() {
+        initAudio(); isGameOver = false; lives = 3; score = 0; stage = 1; hitCounter = 0;
+        document.getElementById('opening').style.display = 'none';
+        document.getElementById('result-overlay').style.display = 'none';
+        document.getElementById('game-ui').style.display = 'block';
+        document.getElementById('controls').style.opacity = '1';
+        resetStage();
+    }
+
+    function backToMenu() {
+        isGameOver = true; clearScene();
+        document.getElementById('result-overlay').style.display = 'none';
+        document.getElementById('opening').style.display = 'flex';
+        document.getElementById('game-ui').style.display = 'none';
+        document.getElementById('controls').style.opacity = '0';
+        resetCamera();
+    }
+
+    function clearScene() {
+        bullets.forEach(b => scene.remove(b.mesh)); bullets = [];
+        invaders.forEach(i => scene.remove(i.mesh)); invaders = [];
+        ufos.forEach(u => scene.remove(u.mesh)); ufos = [];
+        bunkers.forEach(bk => scene.remove(bk.mesh)); bunkers = [];
+    }
+
+    function resetStage() {
+        player.position.set(0, -10, 0); player.rotation.set(0, 0, 0);
+        playerDroopAmount = 0; clearScene(); resetCamera();
+        spawnInvaders(); if (stage > 1) createBunkers();
+        updateUI();
+    }
+
+    function createBunkers() {
+        const mat = new THREE.MeshPhongMaterial({ color: 0x880011, transparent: true, opacity: 0.8, specular: 0xffffff });
+        for(let i=0; i<4; i++) {
+            const bx = (i - 1.5) * 11;
+            for(let r=0; r<3; r++) {
+                for(let c=0; c<4; c++) {
+                    const block = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), mat.clone());
+                    block.position.set(bx + c*1.3 - 1.8, 8 + r*1.3, 0);
+                    scene.add(block); bunkers.push({ mesh: block, hp: 3 });
+                }
+            }
+        }
+    }
+
+    function spawnInvaders() {
+        currentInvaderSpeed = 0.015 + (stage * 0.012);
+        for (let r=0; r<INVADER_ROWS; r++) {
+            for (let c=0; c<INVADER_COLS; c++) {
+                invaders.push(createInvader((c - (INVADER_COLS-1)/2)*7.5, 42 + r*5.5));
+            }
+        }
+    }
+
+    function createInvader(x, y) {
+        const type = Math.floor(Math.random() * 4); const segments = 55; const pts = []; const h = 2.8 + Math.random(); const twist = 45 + Math.random()*25; const rad = 1.3 + Math.random();
+        for (let i=0; i<=segments; i++) {
+            const p = i/segments; let vec = new THREE.Vector3();
+            if (type === 0) vec.set(Math.cos(p*twist)*rad*p + (Math.random()-0.5)*1.2, p*h, Math.sin(p*twist)*rad*p);
+            else if (type === 1) vec.set(Math.sin(p*18)*2.2, p*h, Math.cos(p*12)*1.2);
+            else if (type === 2) vec.set(Math.cos(p*30)*rad, p*h, Math.sin(p*30)*rad);
+            else { const angle = p * 60; vec.set(Math.cos(angle)*1.5, p*h, Math.sin(angle)*1.5); }
+            pts.push(vec);
+        }
+        const curve = new THREE.CatmullRomCurve3(pts);
+        const geo = new THREE.TubeGeometry(curve, segments, 0.05, 8, false);
+        const pos = geo.attributes.position; const v = new THREE.Vector3(), cp = new THREE.Vector3();
+        for (let i=0; i<pos.count; i++) {
+            const prog = Math.floor(i/9)/segments; curve.getPointAt(prog, cp); v.fromBufferAttribute(pos, i);
+            const d = new THREE.Vector3().subVectors(v, cp); d.multiplyScalar(1.5 - prog * 1.49); v.addVectors(cp, d); pos.setXYZ(i, v.x, v.y, v.z);
+        }
+        pos.needsUpdate = true;
+        const hair = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.01, metalness: 1.0, emissive: 0xcccccc, emissiveIntensity: 1.0 }));
+        hair.position.set(x, y, 0); hair.rotation.set(Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+        scene.add(hair);
+        return { mesh: hair, originalX: x, phase: Math.random()*Math.PI*2, isBurning: false, burnScale: 1.0, rot: (Math.random()-0.5)*0.35 };
+    }
+
+    function spawnUFO() {
+        if (ufos.length > 0 || Math.random() > 0.007) return;
+        const ufo = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.7, 12, 32), new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xaa8800, roughness: 0.05, metalness: 1.0 }));
+        const side = Math.random() > 0.5 ? 1 : -1;
+        ufo.position.set(30 * side, 58, 0); scene.add(ufo);
+        ufos.push({ mesh: ufo, dir: -side });
+    }
+
+    function fire() {
+        if (isGameOver || playerDroopAmount > 0.1) return;
+        initAudio(); playShootSound(); 
+        const group = new THREE.Group();
+        const mat = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 250, transparent: true, opacity: 0.98, specular: 0xffffff, emissive: 0x888888 });
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.55, 10, 10), mat); head.scale.set(1, 2.2, 1); group.add(head);
+        const drops = [];
+        for(let i=1; i<=7; i++) {
+            const d = new THREE.Mesh(new THREE.SphereGeometry(0.48-i*0.06, 8, 8), mat); d.position.y = -i*0.7; group.add(d); drops.push(d);
+        }
+        group.position.set(player.position.x, player.position.y+4.8, 0);
+        scene.add(group); bullets.push({ mesh: group, drops: drops });
+    }
+
+    function updateUI() {
+        document.getElementById('score-val').innerText = score;
+        document.getElementById('lives-display').innerText = "❤".repeat(Math.max(0, lives));
+        document.getElementById('stage-val').innerText = stage;
+    }
+
+    function showEndMsg(type) {
+        clearScene(); 
+        const t = i18n[language];
+        document.getElementById('status-title').innerText = type === "OVER" ? t.gameOver : t.win;
+        document.getElementById('status-desc').innerText = `${t.finalScore}: ${score} (${t.act} ${stage})`;
+        document.getElementById('result-overlay').style.display = 'flex';
+        document.getElementById('msg-box').style.display = 'block';
+    }
+
+    function onWindowResize() { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
+    function handleKeyDown(e) { if(e.code==='ArrowLeft') moveLeft=true; if(e.code==='ArrowRight') moveRight=true; if(e.code==='Space') fire(); }
+    function handleKeyUp(e) { if(e.code==='ArrowLeft') moveLeft=false; if(e.code==='ArrowRight') moveRight=false; }
+    function setupMobileControls() {
+        const bl=document.getElementById('btn-left'), br=document.getElementById('btn-right'), bf=document.getElementById('btn-fire');
+        const pd = e => { if(e.cancelable) e.preventDefault(); };
+        bl.onpointerdown = e => { pd(e); moveLeft=true; }; bl.onpointerup = () => moveLeft=false;
+        br.onpointerdown = e => { pd(e); moveRight=true; }; br.onpointerup = () => moveRight=false;
+        bf.onpointerdown = e => { pd(e); fire(); };
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const t = clock.getElapsedTime();
+        if (!isGameOver) {
+            if (playerDroopAmount < 0.1) {
+                if (moveLeft && player.position.x > -PLAYER_LIMIT_X) player.position.x -= 0.65;
+                if (moveRight && player.position.x < PLAYER_LIMIT_X) player.position.x += 0.65;
+            }
+
+            const speedScale = 0.5 + stage * 0.05;
+            girl.position.x = Math.sin(t * speedScale) * 9.5;
+            girl.position.z = Math.cos(t * speedScale * 2.2) * 4.5;
+            girl.rotation.y = Math.sin(t * speedScale * 0.7) * 0.55;
+            girl.rotation.z = Math.sin(t * speedScale * 0.4) * 0.22;
+            const legSwing = Math.sin(t * speedScale * 1.5);
+            leftLeg.rotation.x = legSwing * 0.35; leftLeg.rotation.z = 0.05 + Math.max(0, legSwing) * 0.35;
+            rightLeg.rotation.x = -legSwing * 0.35; rightLeg.rotation.z = -0.05 + Math.min(0, legSwing) * 0.35;
+            skirtMesh.rotation.x = Math.sin(t * speedScale * 2) * 0.18; skirtMesh.rotation.z = Math.sin(t * speedScale) * 0.25;
+
+            if (playerDroopAmount > 0) {
+                playerDroopAmount += 0.015; 
+                player.rotation.x = Math.min(Math.PI / 1.7, playerDroopAmount * 0.5);
+                camera.position.z -= 0.15; camera.position.y -= 0.05; camera.lookAt(player.position.x, player.position.y + 11, 0);
+                if (Math.floor(playerDroopAmount * 10) % 8 === 0) playCreepySound();
+                if (playerDroopAmount > 5.5) { 
+                    if (lives > 0) resetStage(); else { isGameOver = true; showEndMsg("OVER"); }
+                }
+            }
+
+            spawnUFO();
+            for (let i = ufos.length - 1; i >= 0; i--) {
+                const u = ufos[i]; u.mesh.position.x += 0.45 * u.dir; u.mesh.rotation.y += 0.15; if(Math.abs(u.mesh.position.x) > 55) { scene.remove(u.mesh); ufos.splice(i, 1); }
+            }
+
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const b = bullets[i]; b.mesh.position.y += 1.35;
+                b.drops.forEach((d, idx) => { d.position.x = Math.sin(t*35 + idx)*0.45; });
+                if (b.mesh.position.y > 80) { scene.remove(b.mesh); bullets.splice(i, 1); continue; }
+                let bRem = false;
+                for (let k = ufos.length - 1; k >= 0; k--) {
+                    if (b.mesh.position.distanceTo(ufos[k].mesh.position) < 3.8) {
+                        score += 1500; playHitSound(); scene.remove(ufos[k].mesh); ufos.splice(k, 1); scene.remove(b.mesh); bullets.splice(i, 1); updateUI(); bRem = true; break;
+                    }
+                }
+                if(bRem) continue;
+                for (let j = bunkers.length - 1; j >= 0; j--) {
+                    if (b.mesh.position.distanceTo(bunkers[j].mesh.position) < 1.6) {
+                        bunkers[j].hp--; bunkers[j].mesh.material.opacity = bunkers[j].hp/3; if(bunkers[j].hp<=0) { scene.remove(bunkers[j].mesh); bunkers.splice(j, 1); } scene.remove(b.mesh); bullets.splice(i, 1); bRem = true; break;
+                    }
+                }
+                if(bRem) continue;
+                for (let j = 0; j < invaders.length; j++) {
+                    const inv = invaders[j];
+                    if(!inv.isBurning && b.mesh.position.distanceTo(inv.mesh.position) < 3.5) {
+                        inv.isBurning = true; score += 100; playHitSound(); scene.remove(b.mesh); bullets.splice(i, 1); updateUI(); bRem = true; break;
+                    }
+                }
+            }
+
+            const speedMult = 1.0 + (INVADER_COLS * INVADER_ROWS - invaders.length) * 0.08;
+            for (let i = invaders.length - 1; i >= 0; i--) {
+                const inv = invaders[i];
+                if (inv.isBurning) {
+                    inv.burnScale -= 0.15; inv.mesh.scale.set(inv.burnScale, inv.burnScale, inv.burnScale);
+                    if (inv.burnScale <= 0) { scene.remove(inv.mesh); invaders.splice(i, 1); } continue;
+                }
+                inv.mesh.position.y -= currentInvaderSpeed * speedMult;
+                inv.mesh.position.x = inv.originalX + Math.sin(t*1.5 + inv.phase) * 6.0;
+                if (inv.mesh.position.y < (player.position.y + 7.8) && Math.abs(inv.mesh.position.x - player.position.x) < 4.0 && playerDroopAmount === 0) {
+                    lives--; updateUI(); playCreepySound(); playerDroopAmount = 0.01; break;
+                }
+                if (inv.mesh.position.y < -30) { scene.remove(inv.mesh); invaders.splice(i, 1); }
+            }
+            if (invaders.length === 0 && !isGameOver && playerDroopAmount === 0) { stage++; resetStage(); }
+        }
+        renderer.render(scene, camera);
+    }
+    window.onload = () => { init(); setLanguage('en'); };
+</script>
+
+</body>
+</html>
