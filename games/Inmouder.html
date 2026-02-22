@@ -63,7 +63,7 @@
             color: #000;
         }
 
-        .logo-container { text-align: center; margin-bottom: 40px; }
+        .logo-container { text-align: center; margin-bottom: 30px; }
         .logo-main { 
             font-size: clamp(35px, 10vw, 90px); 
             font-weight: 900; 
@@ -99,13 +99,22 @@
             cursor: pointer; 
             font-size: 22px; 
             font-weight: bold; 
-            margin: 12px; 
+            margin: 8px; 
             transition: all 0.3s; 
             text-transform: uppercase;
             letter-spacing: 3px;
         }
         .btn:hover { filter: brightness(1.4); transform: scale(1.05); }
         .btn-sub { background: #222; border-color: #777; color: #aaa; font-size: 16px; }
+
+        /* ポータルに戻るボタン専用のスタイル */
+        .btn-portal {
+            background: linear-gradient(to bottom, #444, #111);
+            border-color: #888;
+            font-size: 16px;
+            padding: 12px 30px;
+            margin-top: 20px;
+        }
 
         #game-ui { 
             position: absolute; 
@@ -142,6 +151,7 @@
 </head>
 <body>
 
+<!-- オープニング -->
 <div id="opening" class="overlay">
     <div class="lang-switch">
         <div id="lang-en" class="lang-btn active" onclick="setLanguage('en')">ENGLISH</div>
@@ -153,8 +163,11 @@
         <div id="logo-tagline" class="logo-sub">THE EROTIC SPECTACLE</div>
     </div>
     <button id="btn-start" class="btn" onclick="startGame()">ENTER THE SHOW</button>
+    <!-- ポータルに戻るボタン -->
+    <button id="btn-portal" class="btn btn-portal" onclick="window.location.href='https://erotiquelion.github.io/erotic-lion/'">BACK TO PORTAL</button>
 </div>
 
+<!-- リザルト -->
 <div id="result-overlay" class="overlay" style="display:none;">
     <div id="msg-box">
         <h2 id="status-title" style="color: var(--primary); font-size: 44px; margin: 0;">ACT OVER</h2>
@@ -166,6 +179,7 @@
     </div>
 </div>
 
+<!-- ゲーム中UI -->
 <div id="game-ui">
     <div class="stats-bar">
         <div class="stat-group">
@@ -190,8 +204,36 @@
 <script>
     // --- Localization ---
     const i18n = {
-        en: { title: "Inmouder-Game", intro: "Ladies and Gentlemen...", tagline: "THE EROTIC SPECTACLE", startBtn: "ENTER THE SHOW", score: "SCORE", act: "ACT", quit: "QUIT", gameOver: "ACT OVER", win: "SUCCESS", replay: "REPLAY SHOW", menu: "MAIN HALL", finalScore: "FINAL SCORE" },
-        jp: { title: "陰毛だぁーげーむ", intro: "紳士淑女の皆様...", tagline: "禁断の見世物へようこそ", startBtn: "入場する", score: "スコア", act: "幕", quit: "中止", gameOver: "終演", win: "浄化完了", replay: "もう一度観る", menu: "ロビーへ戻る", finalScore: "最終スコア" }
+        en: { 
+            title: "Inmouder-Game", 
+            intro: "Ladies and Gentlemen...", 
+            tagline: "THE EROTIC SPECTACLE", 
+            startBtn: "ENTER THE SHOW", 
+            portalBtn: "BACK TO PORTAL",
+            score: "SCORE", 
+            act: "ACT", 
+            quit: "QUIT", 
+            gameOver: "ACT OVER", 
+            win: "SUCCESS", 
+            replay: "REPLAY SHOW", 
+            menu: "MAIN HALL", 
+            finalScore: "FINAL SCORE" 
+        },
+        jp: { 
+            title: "陰毛だぁーげーむ", 
+            intro: "紳士淑女の皆様...", 
+            tagline: "禁断の見世物へようこそ", 
+            startBtn: "入場する", 
+            portalBtn: "ポータルに戻る",
+            score: "スコア", 
+            act: "幕", 
+            quit: "中止", 
+            gameOver: "終演", 
+            win: "浄化完了", 
+            replay: "もう一度観る", 
+            menu: "ロビーへ戻る", 
+            finalScore: "最終スコア" 
+        }
     };
 
     let language = 'en';
@@ -205,6 +247,7 @@
         document.getElementById('logo-main').innerText = t.title;
         document.getElementById('logo-tagline').innerText = t.tagline;
         document.getElementById('btn-start').innerText = t.startBtn;
+        document.getElementById('btn-portal').innerText = t.portalBtn;
         document.getElementById('ui-label-score').innerText = t.score;
         document.getElementById('ui-label-act').innerText = t.act;
         document.getElementById('btn-quit-ui').innerText = t.quit;
@@ -311,17 +354,16 @@
         fillSpot.position.set(0, 30, 20);
         scene.add(fillSpot);
 
-        // Player model (Restored size and significantly lower position)
+        // Player model
         const skinMat = new THREE.MeshPhongMaterial({ color: 0xffdbac, specular: 0x888888, shininess: 50 });
         const glansMat = new THREE.MeshPhongMaterial({ color: 0xffadad, specular: 0xffffff, shininess: 120 });
         player = new THREE.Group();
-        // サイズを元（大きめ）に戻す
         const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.85, 4.5, 20), skinMat); shaft.position.y = 2.25; player.add(shaft);
         const head = new THREE.Mesh(new THREE.SphereGeometry(1.0, 20, 20, 0, Math.PI*2, 0, Math.PI*0.75), glansMat); head.position.y = 4.2; player.add(head);
         const b1 = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 16), skinMat); b1.position.set(-1.1, 0.7, 0); player.add(b1);
         const b2 = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 16), skinMat); b2.position.set(1.1, 0.7, 0); player.add(b2);
         
-        player.position.y = -10; // 位置をさらに下げた
+        player.position.y = -10; 
         scene.add(player);
 
         // Woman Model
@@ -390,16 +432,15 @@
     function playHitSound() {
         if (!audioCtx) return;
         hitCounter++;
-        if (hitCounter % 3 !== 0) return; // 3回に1回だけ再生
+        if (hitCounter % 3 !== 0) return; 
 
         if (cachedHitSoundBuffer) {
             const source = audioCtx.createBufferSource();
             source.buffer = cachedHitSoundBuffer;
-            source.playbackRate.value = 1.2; // さらに高音にする
+            source.playbackRate.value = 1.2; 
             source.connect(audioCtx.destination);
             source.start(0);
         } else {
-            // Fallback
             const now = audioCtx.currentTime;
             const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
             osc.type = 'triangle'; osc.frequency.setValueAtTime(500, now); osc.frequency.exponentialRampToValueAtTime(400, now + 0.4);
