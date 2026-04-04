@@ -343,7 +343,9 @@ function WordGame() {
       }
 
       if (data.error) throw new Error(data.error);
-      if (!data.candidates || !data.candidates[0].content) throw new Error("APIエラー、または安全フィルターによるブロック: " + JSON.stringify(data));
+      if (!data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+        throw new Error("APIエラー、または安全フィルターによるブロック: " + JSON.stringify(data));
+      }
 
       const result = JSON.parse(data.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim());
       setIsThinking(false);
