@@ -102,13 +102,17 @@ function WordGame() {
   const [arousal, setArousal] = useState(0);
   const [displayKana, setDisplayKana] = useState(DEFAULT_START_KANA);
   const [history, setHistory] = useState([]);
+  
+  // 新機能用のステート群
+  const [useTextInput, setUseTextInput] = useState(false);
+  const [inputText, setInputText] = useState("");
   const [isListening, setIsListening] = useState(false);
+  
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [playerInputText, setPlayerInputText] = useState('');
   const [aiResponseText, setAiResponseText] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [gameResult, setGameResult] = useState(null);
-  const [micError, setMicError] = useState(null);
 
   const recognitionRef = useRef(null);
   const currentAudioRef = useRef(null);
@@ -203,13 +207,54 @@ function WordGame() {
     return false;
   };
 
-  const requestMicAndInit = async () => {
+  // 劇的修正点：マイクが無い/拒否されても絶対にフリーズさせない
+  const handleStartNewGame = async () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    // もしブラウザが音声認識に非対応なら、即座にテキストモードで進む
+    if (!SpeechRecognition) {
+      setUseTextInput(true);
+      setGameState('character_select');
+      return;
+    }
+
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      return initRecognition();
+      initRecognition();
+      setGameState('character_select');
     } catch (err) {
-      setMicError("マイクの使用が許可されませんでした。");
-      return false;
+      // マイクがブロックされた場合も、テキストモードで救済して進む
+      setUseTextInput(true);
+      setGameState('character_select');
+    }
+  };
+
+  const handleResumeGame = async () => {
+    const proceed = () => {
+      if (savedData) {
+        setSelectedCharKey(savedData.selectedCharKey);
+        setArousal(savedData.arousal);
+        setDisplayKana(savedData.displayKana);
+        setHistory(savedData.history || []);
+        setGameState('playing');
+        speak(`おかえりなさい。続きは「${savedData.displayKana}」からよ。`, "妖艶に");
+      }
+    };
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setUseTextInput(true);
+      proceed();
+      return;
+    }
+
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      initRecognition();
+      proceed();
+    } catch (err) {
+      setUseTextInput(true);
+      proceed();
     }
   };
 
@@ -245,7 +290,12 @@ function WordGame() {
   const handlePlayerInput = async (input) => {
     if (!input || isBusyRef.current) return;
     const s = stateRef.current;
-    setIsThinking(true); isBusyRef.current = true;
+    
+    // 入力された文字を画面に表示
+    setPlayerInputText(input);
+    setIsThinking(true); 
+    isBusyRef.current = true;
+
     try {
       const res = await fetch(`/api/chat`, {
         method: 'POST',
@@ -288,23 +338,6 @@ function WordGame() {
     else { setPasscodeError('合言葉が違います'); setPasscode(''); }
   };
 
-  const handleStartNewGame = async () => {
-    if (await requestMicAndInit()) setGameState('character_select');
-  };
-
-  const handleResumeGame = async () => {
-    if (await requestMicAndInit()) {
-      if (savedData) {
-        setSelectedCharKey(savedData.selectedCharKey);
-        setArousal(savedData.arousal);
-        setDisplayKana(savedData.displayKana);
-        setHistory(savedData.history || []);
-        setGameState('playing');
-        speak(`おかえりなさい。続きは「${savedData.displayKana}」からよ。`, "妖艶に");
-      }
-    }
-  };
-
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -337,15 +370,24 @@ function WordGame() {
   if (gameState === 'intro') {
     return (
       <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center p-6 z-[100]">
-        <div className="absolute top-6 right-6 flex gap-3">
-          <button onClick={() => setGameState('help')} className="p-3 bg-zinc-900 rounded-full text-zinc-400"><HelpCircle size={24} /></button>
-          <button onClick={() => setGameState('settings')} className="p-3 bg-zinc-900 rounded-full text-zinc-400"><Settings size={24} /></button>
+        
+        {/* 見切れないように、タイトルとボタンを中央に配置するよう劇的変更！ */}
+        <h1 className="text-4xl md:text-5xl font-black text-white mb-8 tracking-widest drop-shadow-lg text-center">淫らな尻とり</h1>
+        
+        <div className="flex gap-8 mb-12">
+          <button onClick={() => setGameState('help')} className="flex flex-col items-center text-zinc-400 hover:text-white transition-colors">
+            <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-full mb-2 shadow-lg"><HelpCircle size={28} /></div>
+            <span className="text-xs font-bold tracking-wider">遊び方</span>
+          </button>
+          <button onClick={() => setGameState('settings')} className="flex flex-col items-center text-zinc-400 hover:text-white transition-colors">
+            <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-full mb-2 shadow-lg"><Settings size={28} /></div>
+            <span className="text-xs font-bold tracking-wider">設定</span>
+          </button>
         </div>
-        <h1 className="text-4xl font-black text-white mb-12 tracking-widest">淫らな尻とり</h1>
+
         <div className="flex flex-col gap-4 w-full max-w-xs">
-          {hasSaveData && <button onClick={handleResumeGame} className="py-4 bg-white/10 border border-white/20 rounded-full text-white font-bold">続きから</button>}
-          <button onClick={handleStartNewGame} className="py-4 bg-pink-600 rounded-full text-white font-bold shadow-xl">開始する</button>
-          {micError && <p className="text-red-400 text-xs text-center mt-2">{micError}</p>}
+          {hasSaveData && <button onClick={handleResumeGame} className="py-4 bg-white/10 border border-white/20 rounded-full text-white font-bold hover:bg-white/20 transition-all">続きから</button>}
+          <button onClick={handleStartNewGame} className="py-4 bg-pink-600 rounded-full text-white font-bold shadow-xl shadow-pink-600/20 hover:bg-pink-500 transition-all">開始する</button>
         </div>
       </div>
     );
@@ -356,7 +398,7 @@ function WordGame() {
       <div className="fixed inset-0 bg-zinc-950 p-6 overflow-y-auto z-[100]">
         <button onClick={() => setGameState('intro')} className="mb-8 p-2 text-zinc-400 flex items-center gap-1"><ChevronLeft size={20} /> 戻る</button>
         <h2 className="text-2xl font-bold text-white mb-8 text-center tracking-widest">相手を選んでください</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto pb-12">
           {Object.entries(charConfigs).map(([key, char]) => (
             <div key={key} onClick={() => { setSelectedCharKey(key); setGameState('ready'); }} className="group relative bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 hover:border-pink-500 transition-all cursor-pointer">
               <div className="aspect-[3/4] relative">
@@ -378,7 +420,7 @@ function WordGame() {
     const char = charConfigs[editingCharKey];
     return (
       <div className="fixed inset-0 bg-zinc-950 p-6 overflow-y-auto z-[100] text-zinc-300">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto pb-12">
           <div className="flex items-center justify-between mb-8">
              <button onClick={() => setGameState('intro')} className="p-2 flex items-center gap-1"><ChevronLeft size={20} /> 戻る</button>
              <h2 className="text-xl font-bold text-white">詳細設定</h2>
@@ -432,6 +474,8 @@ function WordGame() {
             <li>エッチな言葉ほど、お姉さんの「欲情度」が上がります。</li>
             <li>欲情度が100%になると、お姉さんが限界を迎えてあなたの勝利です。</li>
             <li>「ん」で終わる言葉を言ったり、ルールを破るとあなたの負けです。</li>
+            {/* テキストモードの説明も追加 */}
+            <li className="text-pink-400 mt-4 list-none">※マイクが使えない環境でも、文字入力モードで遊ぶことができます。</li>
           </ul>
           <button onClick={() => setGameState('intro')} className="w-full mt-8 py-3 bg-zinc-100 text-black font-bold rounded-xl">分かった</button>
         </div>
@@ -465,28 +509,81 @@ function WordGame() {
       {(gameState === 'ready' || gameState === 'gameover') && (
         <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
           <h2 className="text-4xl font-black mb-8">{gameState === 'gameover' ? (gameResult === 'win' ? 'VICTORY!!' : 'GAME OVER') : 'READY?'}</h2>
-          <button onClick={() => { setGameState('playing'); setArousal(0); setHistory([]); setDisplayKana(startKanaSetting); saveGameProgress(0, startKanaSetting, [], selectedCharKey); speak(`始めましょう。最初は「${startKanaSetting}」からよ。`, "妖艶に"); }} className="px-12 py-4 bg-pink-600 rounded-full font-bold text-lg shadow-2xl">
+          <button onClick={() => { setGameState('playing'); setArousal(0); setHistory([]); setDisplayKana(startKanaSetting); saveGameProgress(0, startKanaSetting, [], selectedCharKey); speak(`始めましょう。最初は「${startKanaSetting}」からよ。`, "妖艶に"); }} className="px-12 py-4 bg-pink-600 rounded-full font-bold text-lg shadow-2xl hover:scale-105 transition-transform">
             {gameState === 'gameover' ? 'もう一度' : '対話を開始'}
           </button>
         </div>
       )}
 
       {gameState === 'playing' && (
-        <div className="absolute bottom-0 left-0 right-0 z-30 flex flex-col items-center pb-8 bg-gradient-to-t from-black/80 to-transparent">
-          <div className="w-full px-8 min-h-[40px] flex items-end justify-center mb-6">
-            {aiResponseText && !isListening && <p className="text-xl font-medium text-center">{aiResponseText}</p>}
-            {!isListening && !aiResponseText && playerInputText && <p className="text-2xl text-pink-200 font-bold animate-pulse">{playerInputText}・・・</p>}
-            {isThinking && <div className="flex gap-1"><div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce" /><div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce [animation-delay:0.2s]" /><div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce [animation-delay:0.4s]" /></div>}
+        <div className="absolute bottom-0 left-0 right-0 z-30 flex flex-col items-center pb-8 bg-gradient-to-t from-black/90 via-black/70 to-transparent pt-12">
+          
+          {/* AIの反応や自分の入力した文字を表示するエリア */}
+          <div className="w-full px-8 min-h-[40px] flex flex-col items-center justify-end mb-6">
+            {aiResponseText && !isListening && <p className="text-xl font-medium text-center mb-2 drop-shadow-md">{aiResponseText}</p>}
+            
+            {/* テキスト入力モードの時は、話した言葉の表示を少し変える */}
+            {(!isListening && playerInputText && !aiResponseText) && (
+              <p className="text-2xl text-pink-200 font-bold animate-pulse drop-shadow-md">{playerInputText}・・・</p>
+            )}
+            
+            {isThinking && (
+              <div className="flex gap-1 mt-2">
+                <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce" />
+                <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce [animation-delay:0.2s]" />
+                <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce [animation-delay:0.4s]" />
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-6">
-            <div className="flex flex-col items-center bg-black/40 px-4 py-2 rounded-xl border border-white/10">
-              <span className="text-[9px] text-zinc-500 font-bold">NEXT</span>
-              <div className="text-3xl font-black">{displayKana}</div>
+
+          {/* コントロールエリア（マイク or テキスト入力） */}
+          <div className="w-full flex justify-center items-center gap-4 px-4 max-w-lg mx-auto">
+            
+            <div className="flex flex-col items-center bg-black/60 px-4 py-2 rounded-xl border border-white/10 shadow-inner">
+              <span className="text-[10px] text-zinc-400 font-bold tracking-widest">NEXT</span>
+              <div className="text-3xl font-black text-white drop-shadow-md">{displayKana}</div>
             </div>
-            <button onClick={() => { if(isListening) recognitionRef.current?.stop(); else { setAiResponseText(''); setPlayerInputText(''); recognitionRef.current?.start(); } }} disabled={isSpeaking || isThinking} className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${isListening ? 'bg-red-500 animate-pulse' : 'bg-zinc-100 text-black shadow-xl hover:scale-105'}`}>
-              {isListening ? <Activity size={24} /> : <Mic size={24} />}
-            </button>
+
+            {/* スマホ等でマイクが使えない場合のテキスト入力モード */}
+            {useTextInput ? (
+              <div className="flex-1 flex gap-2">
+                <input 
+                  type="text" 
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  placeholder="ひらがなで入力..."
+                  className="flex-1 bg-zinc-900/90 border border-zinc-700 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:border-pink-500 w-full"
+                  onKeyDown={(e) => {
+                    if(e.key === 'Enter' && inputText.trim() && !isSpeaking && !isThinking) {
+                       handlePlayerInput(inputText.trim());
+                       setInputText("");
+                    }
+                  }}
+                  disabled={isSpeaking || isThinking}
+                />
+                <button 
+                  onClick={() => { handlePlayerInput(inputText.trim()); setInputText(""); }}
+                  disabled={isSpeaking || isThinking || !inputText.trim()} 
+                  className="bg-pink-600 px-5 rounded-xl font-bold disabled:opacity-50 text-sm whitespace-nowrap shadow-lg shadow-pink-600/30"
+                >
+                  送信
+                </button>
+              </div>
+            ) : (
+              /* 通常のマイクボタン */
+              <button 
+                onClick={() => { 
+                  if(isListening) recognitionRef.current?.stop(); 
+                  else { setAiResponseText(''); setPlayerInputText(''); recognitionRef.current?.start(); } 
+                }} 
+                disabled={isSpeaking || isThinking} 
+                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${isListening ? 'bg-red-500 animate-pulse shadow-lg shadow-red-500/50' : 'bg-zinc-100 text-black shadow-xl hover:scale-105'}`}
+              >
+                {isListening ? <Activity size={28} /> : <Mic size={28} />}
+              </button>
+            )}
           </div>
+
         </div>
       )}
     </div>
