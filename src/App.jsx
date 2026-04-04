@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, Component } from 'react';
-import { Mic, Activity, Settings, XCircle, Heart, Home, Upload, HelpCircle, Lock, Unlock } from 'lucide-react';
+import { Mic, Activity, Settings, XCircle, Heart, Home, Upload, HelpCircle, Lock, Unlock, ChevronLeft, Save } from 'lucide-react';
 
 // --- Firebase Setup ---
 import { initializeApp } from 'firebase/app';
@@ -13,17 +13,16 @@ try {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
-    // appId内のスラッシュをハイフンに置換して、Firebaseの階層エラーを回避
     appId = typeof __app_id !== 'undefined' ? __app_id.replace(/\//g, '-') : 'default-app-id';
   }
 } catch (e) {
   console.warn("Firebase init error:", e);
 }
-// ----------------------
 
+// --- Constants ---
 const DEFAULT_START_KANA = "し";
 const MAX_AROUSAL = 100;
-const SECRET_PASSCODE = "0721"; // 合言葉
+const SECRET_PASSCODE = "0721";
 
 const INITIAL_CHARACTERS = {
   reika: {
@@ -62,31 +61,28 @@ const INITIAL_CHARACTERS = {
 };
 
 const getSystemPrompt = (char, arousal, currentKana, history) => {
-  return `
-${char.prompt}
+  return `${char.prompt}
 現在の欲情度: ${arousal}%。
 【しりとり厳格ルール】
-1. プレイヤーは必ず「${currentKana}」から始まる言葉を言わなければなりません。違反時は valid を false にしてください。
+1. プレイヤーは必ず「${currentKana}」から始まる言葉を言わなければなりません。
 2. 既に出た単語を使用してはいけません。
 3. 語尾が「ん」で終了した場合は player_lost を true にしてください。
-4. あなたの回答も「既に出た単語」は絶対に使わないでください。
-5. プレイヤーの言葉がエッチで興奮するものの場合は「arousal_inc」を10〜30のプラス値に設定してください。逆に、雰囲気を壊すようなつまらない言葉、的外れな言葉の場合は、欲情度が冷めるためマイナス値（-5〜-20）を設定して欲情度を下げてください。
+4. プレイヤーの言葉がエッチで興奮するものの場合は「arousal_inc」を15〜30のプラス値に、つまらない場合はマイナス値にしてください。
 
-現在の単語履歴: [${history.join(', ')}]
+履歴: [${history.join(', ')}]
 
-レスポンスは必ず以下のJSON形式で。
+レスポンスは必ず以下のJSON形式で:
 {
   "feedback": "セリフ1行",
   "word": "あなたの回答(名詞)",
-  "word_reading": "あなたの回答のよみ(ひらがな)",
-  "next_kana": "word_readingの最後の文字(ただし「ー」ならその前の文字、小文字なら大文字に変換すること)",
+  "word_reading": "回答のよみ",
+  "next_kana": "次の文字",
   "arousal_inc": 15,
   "valid": true,
   "player_lost": false,
   "sister_lost": false,
   "tts_instruction": "演技指示"
-}
-`;
+}`;
 };
 
 function WordGame() {
@@ -112,31 +108,17 @@ function WordGame() {
   const [aiResponseText, setAiResponseText] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [gameResult, setGameResult] = useState(null);
-  const [micError, setMicError] = useState(null);
 
   const recognitionRef = useRef(null);
   const currentAudioRef = useRef(null);
   const fileInputRef = useRef(null);
-  const lastTranscriptRef = useRef(""); 
   const [currentEditingImageType, setCurrentEditingImageType] = useState(null);
-
   const isBusyRef = useRef(false);
   const stateRef = useRef({ arousal, displayKana, history, selectedCharKey, charConfigs, gameState });
 
   useEffect(() => {
     stateRef.current = { arousal, displayKana, history, selectedCharKey, charConfigs, gameState };
   }, [arousal, displayKana, history, selectedCharKey, charConfigs, gameState]);
-
-  // 検索エンジン避け
-  useEffect(() => {
-    let meta = document.querySelector('meta[name="robots"]');
-    if (!meta) {
-      meta = document.createElement('meta');
-      meta.name = "robots";
-      document.getElementsByTagName('head')[0].appendChild(meta);
-    }
-    meta.content = "noindex, nofollow";
-  }, []);
 
   useEffect(() => {
     if (!auth) return;
@@ -163,159 +145,89 @@ function WordGame() {
         setHasSaveData(false);
         setSavedData(null);
       }
-    }, (error) => {
-      console.warn("Error fetching save data", error);
     });
     return () => unsubscribe();
   }, [user]);
 
-  const saveGameProgress = async (currentArousal, currentKana, currentHistory, charKey) => {
+  const saveGameProgress = async (curA, curK, curH, curChar) => {
     if (!user || !db) return;
     try {
-      const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'saveData', 'current');
-      await setDoc(docRef, {
-        arousal: currentArousal,
-        displayKana: currentKana,
-        history: currentHistory,
-        selectedCharKey: charKey,
-        timestamp: Date.now()
+      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'saveData', 'current'), {
+        arousal: curA, displayKana: curK, history: curH, selectedCharKey: curChar, timestamp: Date.now()
       });
-    } catch (e) {
-      console.warn("Save failed", e);
-    }
+    } catch (e) {}
   };
 
   const clearSaveData = async () => {
     if (!user || !db) return;
-    try {
-      const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'saveData', 'current');
-      await deleteDoc(docRef);
-    } catch(e) {}
+    try { await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'saveData', 'current')); } catch(e) {}
   };
 
   const initRecognition = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'ja-JP';
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.maxAlternatives = 1;
-      
-      recognition.onstart = () => { setIsListening(true); lastTranscriptRef.current = ""; };
-      recognition.onresult = (e) => {
-        let finalTranscript = "";
-        for (let i = e.resultIndex; i < e.results.length; ++i) {
-          if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript;
-          else lastTranscriptRef.current = e.results[i][0].transcript;
-        }
-        if (finalTranscript) {
-          lastTranscriptRef.current = "";
-          setPlayerInputText(finalTranscript);
-          handlePlayerInput(finalTranscript);
-        }
-      };
-      recognition.onend = () => {
-        setIsListening(false);
-        if (lastTranscriptRef.current && !isBusyRef.current) {
-            const lastText = lastTranscriptRef.current;
-            lastTranscriptRef.current = "";
-            setPlayerInputText(lastText);
-            handlePlayerInput(lastText);
-        }
-      };
-      recognition.onerror = () => setIsListening(false);
-      recognitionRef.current = recognition;
-      return true;
-    }
-    return false;
-  };
-
-  const requestMicAndInit = async () => {
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      return initRecognition();
-    } catch (err) {
-      setMicError("マイクの使用が許可されませんでした。");
-      return false;
-    }
-  };
-
-  const handleUnlock = () => {
-    if (passcode === SECRET_PASSCODE) {
-      setGameState('intro');
-      setPasscodeError('');
-    } else {
-      setPasscodeError('合言葉が違います');
-      setPasscode('');
-    }
-  };
-
-  const handleStartNewGame = async () => {
-    if (await requestMicAndInit()) setGameState('character_select');
-  };
-
-  const handleResumeGame = async () => {
-    if (await requestMicAndInit()) {
-      if (savedData) {
-        setSelectedCharKey(savedData.selectedCharKey);
-        setArousal(savedData.arousal);
-        setDisplayKana(savedData.displayKana);
-        setHistory(savedData.history || []);
-        setGameState('playing');
-        speak(`おかえりなさい。続きは「${savedData.displayKana}」からよ。`, "妖艶に");
-      }
-    }
+    if (!SpeechRecognition) return false;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'ja-JP';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (e) => {
+      const text = e.results[0][0].transcript;
+      setPlayerInputText(text);
+      handlePlayerInput(text);
+    };
+    recognition.onend = () => setIsListening(false);
+    recognitionRef.current = recognition;
+    return true;
   };
 
   const speak = async (text, inst, nextKanaUpdate = null, isGameOverCall = false) => {
-    setIsSpeaking(true);
-    isBusyRef.current = true;
-    const finish = (t) => {
-      setIsSpeaking(false); isBusyRef.current = false;
-      setPlayerInputText(''); setAiResponseText(t);
-      if (nextKanaUpdate) setDisplayKana(nextKanaUpdate);
-      if (isGameOverCall) setGameState('gameover');
-    };
+    setIsSpeaking(true); isBusyRef.current = true;
     try {
       const res = await fetch(`/api/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           input: { text },
-          voice: { languageCode: 'ja-JP', name: charConfigs[selectedCharKey].voice },
+          voice: { languageCode: 'ja-JP', name: charConfigs[stateRef.current.selectedCharKey].voice },
           audioConfig: { audioEncoding: 'MP3' }
         })
       });
       const data = await res.json();
       if (data.audioContent) {
-        if (currentAudioRef.current) currentAudioRef.current.pause();
         const audio = new Audio("data:audio/mp3;base64," + data.audioContent);
         currentAudioRef.current = audio;
-        audio.onplay = () => setAiResponseText(text);
-        audio.onended = () => finish(text);
+        audio.onplay = () => { setAiResponseText(text); if (nextKanaUpdate) setDisplayKana(nextKanaUpdate); };
+        audio.onended = () => {
+          setIsSpeaking(false); isBusyRef.current = false;
+          if (isGameOverCall) setGameState('gameover');
+        };
         audio.play();
-      } else finish(text);
-    } catch (e) { finish(text); }
+      } else {
+        setAiResponseText(text); setIsSpeaking(false); isBusyRef.current = false;
+        if (isGameOverCall) setGameState('gameover');
+      }
+    } catch (e) { setIsSpeaking(false); isBusyRef.current = false; }
   };
 
   const handlePlayerInput = async (input) => {
     if (!input || isBusyRef.current) return;
-    const { arousal: curArousal, displayKana: curKana, history: curHistory, selectedCharKey: curKey, charConfigs: curConfigs } = stateRef.current;
-    isBusyRef.current = true; setIsThinking(true); setAiResponseText('');
+    const s = stateRef.current;
+    setIsThinking(true); isBusyRef.current = true;
     try {
       const res = await fetch(`/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          systemInstruction: { parts: [{ text: getSystemPrompt(curConfigs[curKey], curArousal, curKana, curHistory) }] },
+          systemInstruction: { parts: [{ text: getSystemPrompt(s.charConfigs[s.selectedCharKey], s.arousal, s.displayKana, s.history) }] },
           contents: [{ parts: [{ text: input }] }],
           generationConfig: { responseMimeType: "application/json" }
         })
       });
-      const resData = await res.json();
-      const result = JSON.parse(resData.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim());
+      const data = await res.json();
+      const result = JSON.parse(data.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim());
       setIsThinking(false);
+
       if (!result.valid) { speak(result.feedback || "ルール違反よ。", "優しく"); return; }
 
       let reading = (result.word_reading || "あ").trim();
@@ -323,43 +235,51 @@ function WordGame() {
       const last = reading.slice(-1);
       const smallToLarge = { 'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お', 'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'っ': 'つ', 'ゎ': 'わ' };
       const nextK = smallToLarge[last] || last;
+      const nextA = Math.max(0, Math.min(MAX_AROUSAL, s.arousal + (result.arousal_inc || 15)));
+      
+      setArousal(nextA);
+      const newHistory = [...s.history, input, result.word];
+      setHistory(newHistory);
 
-      const nextA = Math.max(0, Math.min(MAX_AROUSAL, curArousal + (result.arousal_inc || 15)));
-      setArousal(nextA); setHistory([...curHistory, input, result.word]);
-
-      if (result.player_lost) { clearSaveData(); speak(result.feedback, "勝利", null, true); return; }
-      if (result.sister_lost || nextA >= MAX_AROUSAL) { clearSaveData(); speak(result.feedback, "絶頂", null, true); return; }
-
-      saveGameProgress(nextA, nextK, [...curHistory, input, result.word], curKey);
-      speak(`${result.feedback}……「${result.word}」よ。`, result.tts_instruction, nextK);
+      if (result.player_lost || result.sister_lost || nextA >= MAX_AROUSAL) {
+        setGameResult(nextA >= MAX_AROUSAL ? 'win' : 'lose');
+        clearSaveData(); speak(result.feedback, "絶頂", null, true);
+      } else {
+        saveGameProgress(nextA, nextK, newHistory, s.selectedCharKey);
+        speak(`${result.feedback}……「${result.word}」よ。`, result.tts_instruction, nextK);
+      }
     } catch (e) { setIsThinking(false); isBusyRef.current = false; }
   };
 
-  const returnToMenu = () => {
-    if (currentAudioRef.current) currentAudioRef.current.pause();
-    setGameState('intro'); 
+  const handleUnlock = () => {
+    if (passcode === SECRET_PASSCODE) { setGameState('intro'); setPasscodeError(''); }
+    else { setPasscodeError('合言葉が違います'); setPasscode(''); }
   };
 
-  const startGame = () => {
-    setGameState('playing'); setArousal(0); setHistory([]); setDisplayKana(startKanaSetting);
-    saveGameProgress(0, startKanaSetting, [], selectedCharKey);
-    speak(`始めましょう。最初は「${startKanaSetting}」からよ。`, "妖艶に");
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setCharConfigs(prev => ({
+          ...prev, [editingCharKey]: { ...prev[editingCharKey], images: { ...prev[editingCharKey].images, [currentEditingImageType]: event.target.result } }
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  const handleMicClick = () => {
-    if (isListening) recognitionRef.current?.stop();
-    else { setAiResponseText(''); setPlayerInputText(''); recognitionRef.current?.start(); }
-  };
+  // --- Screens ---
 
   if (gameState === 'locked') {
     return (
       <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center p-6 z-[100]">
-        <div className="w-full max-w-sm bg-zinc-900/80 backdrop-blur-xl border border-zinc-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center animate-in fade-in zoom-in duration-500">
-          <div className="w-12 h-12 bg-zinc-800 rounded-full flex items-center justify-center mb-6 text-zinc-400"><Lock size={24} /></div>
-          <h2 className="text-xl text-white font-bold mb-2 tracking-widest">SECRET ROOM</h2>
+        <div className="w-full max-w-sm bg-zinc-900/80 backdrop-blur-xl border border-zinc-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center">
+          <Lock className="text-zinc-500 mb-6" size={32} />
+          <h2 className="text-xl text-white font-bold mb-6 tracking-widest uppercase">Secret Room</h2>
           <input type="password" value={passcode} onChange={(e) => setPasscode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleUnlock()} className="w-full bg-black text-white px-4 py-3 text-center tracking-widest rounded-xl border border-zinc-700 mb-2" placeholder="Passcode"/>
           {passcodeError && <p className="text-xs text-red-400 font-bold mb-4">{passcodeError}</p>}
-          <button onClick={handleUnlock} className="w-full bg-zinc-100 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2"><Unlock size={18} /> 入室</button>
+          <button onClick={handleUnlock} className="w-full bg-zinc-100 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 mt-4"><Unlock size={18} /> 入室</button>
         </div>
       </div>
     );
@@ -368,15 +288,108 @@ function WordGame() {
   if (gameState === 'intro') {
     return (
       <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center p-6 z-[100]">
-        <h1 className="text-4xl font-black text-white mb-8 tracking-widest">淫らな尻とり</h1>
+        <div className="absolute top-6 right-6 flex gap-3">
+          <button onClick={() => setGameState('help')} className="p-3 bg-zinc-900 rounded-full text-zinc-400"><HelpCircle size={24} /></button>
+          <button onClick={() => setGameState('settings')} className="p-3 bg-zinc-900 rounded-full text-zinc-400"><Settings size={24} /></button>
+        </div>
+        <h1 className="text-4xl font-black text-white mb-12 tracking-widest">淫らな尻とり</h1>
         <div className="flex flex-col gap-4 w-full max-w-xs">
-          {hasSaveData && <button onClick={handleResumeGame} className="py-4 bg-white/10 border border-white/20 rounded-full text-white font-bold">続きから</button>}
-          <button onClick={handleStartNewGame} className="py-4 bg-pink-600 rounded-full text-white font-bold shadow-xl">開始する</button>
+          {hasSaveData && <button onClick={() => { setSelectedCharKey(savedData.selectedCharKey); setArousal(savedData.arousal); setDisplayKana(savedData.displayKana); setHistory(savedData.history); initRecognition(); setGameState('playing'); speak(`おかえりなさい。続きから始めましょう。`, "妖艶に"); }} className="py-4 bg-white/10 border border-white/20 rounded-full text-white font-bold">続きから</button>}
+          <button onClick={() => { initRecognition(); setGameState('character_select'); }} className="py-4 bg-pink-600 rounded-full text-white font-bold shadow-xl">開始する</button>
         </div>
       </div>
     );
   }
 
+  if (gameState === 'character_select') {
+    return (
+      <div className="fixed inset-0 bg-zinc-950 p-6 overflow-y-auto z-[100]">
+        <button onClick={() => setGameState('intro')} className="mb-8 p-2 text-zinc-400 flex items-center gap-1"><ChevronLeft size={20} /> 戻る</button>
+        <h2 className="text-2xl font-bold text-white mb-8 text-center tracking-widest">相手を選んでください</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          {Object.entries(charConfigs).map(([key, char]) => (
+            <div key={key} onClick={() => { setSelectedCharKey(key); setGameState('ready'); }} className="group relative bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 hover:border-pink-500 transition-all cursor-pointer">
+              <div className="aspect-[3/4] relative">
+                <img src={char.images.clothed} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={char.name} />
+                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent opacity-80" />
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 p-6">
+                <h3 className="text-xl font-bold text-white mb-1">{char.name}</h3>
+                <p className="text-xs text-zinc-400">{char.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (gameState === 'settings') {
+    const char = charConfigs[editingCharKey];
+    return (
+      <div className="fixed inset-0 bg-zinc-950 p-6 overflow-y-auto z-[100] text-zinc-300">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center justify-between mb-8">
+             <button onClick={() => setGameState('intro')} className="p-2 flex items-center gap-1"><ChevronLeft size={20} /> 戻る</button>
+             <h2 className="text-xl font-bold text-white">詳細設定</h2>
+             <div className="w-10" />
+          </div>
+          <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 mb-8">
+            <label className="block text-sm font-bold mb-2">最初の文字</label>
+            <input type="text" value={startKanaSetting} onChange={(e) => setStartKanaSetting(e.target.value)} className="w-full bg-black border border-zinc-700 p-3 rounded-xl text-center text-xl" />
+          </div>
+          <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800">
+            <div className="flex gap-2 mb-6">
+              {Object.keys(charConfigs).map(k => (
+                <button key={k} onClick={() => setEditingCharKey(k)} className={`flex-1 py-2 rounded-lg text-xs font-bold ${editingCharKey === k ? 'bg-pink-600 text-white' : 'bg-black text-zinc-500'}`}>{charConfigs[k].name}</button>
+              ))}
+            </div>
+            <div className="space-y-6">
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 mb-4 uppercase tracking-widest">画像カスタマイズ</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div onClick={() => { setCurrentEditingImageType('clothed'); fileInputRef.current.click(); }} className="aspect-square bg-black rounded-xl border border-dashed border-zinc-700 flex flex-col items-center justify-center cursor-pointer overflow-hidden relative">
+                    <img src={char.images.clothed} className="absolute inset-0 w-full h-full object-cover opacity-40" />
+                    <Upload size={20} className="relative z-10" />
+                    <span className="text-[10px] mt-1 relative z-10">通常時</span>
+                  </div>
+                  <div onClick={() => { setCurrentEditingImageType('unveiled'); fileInputRef.current.click(); }} className="aspect-square bg-black rounded-xl border border-dashed border-zinc-700 flex flex-col items-center justify-center cursor-pointer overflow-hidden relative">
+                    <img src={char.images.unveiled} className="absolute inset-0 w-full h-full object-cover opacity-40" />
+                    <Upload size={20} className="relative z-10" />
+                    <span className="text-[10px] mt-1 relative z-10">欲情時</span>
+                  </div>
+                </div>
+                <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">性格プロンプト</label>
+                <textarea value={char.prompt} onChange={(e) => setCharConfigs(prev => ({ ...prev, [editingCharKey]: { ...prev[editingCharKey], prompt: e.target.value } }))} className="w-full h-32 bg-black border border-zinc-700 p-4 rounded-xl text-sm leading-relaxed" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (gameState === 'help') {
+    return (
+      <div className="fixed inset-0 bg-zinc-950 p-6 flex flex-col items-center justify-center z-[100]">
+        <div className="max-w-md w-full bg-zinc-900 p-8 rounded-3xl border border-zinc-800">
+          <h2 className="text-xl font-bold text-white mb-6">遊び方</h2>
+          <ul className="space-y-4 text-zinc-400 text-sm list-disc pl-5">
+            <li>表示された「文字」から始まる単語をマイクで話してください。</li>
+            <li>エッチな言葉ほど、お姉さんの「欲情度」が上がります。</li>
+            <li>欲情度が100%になると、お姉さんが限界を迎えてあなたの勝利です。</li>
+            <li>「ん」で終わる言葉を言ったり、ルールを破るとあなたの負けです。</li>
+          </ul>
+          <button onClick={() => setGameState('intro')} className="w-full mt-8 py-3 bg-zinc-100 text-black font-bold rounded-xl">分かった</button>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Main Play Screen ---
   const currentChar = charConfigs[selectedCharKey];
   const blurValue = Math.max(0, 10 - (arousal * 0.1));
   const clothesOpacity = Math.max(0, 1 - (arousal / 80));
@@ -387,8 +400,9 @@ function WordGame() {
         <img src={currentChar.images.unveiled} className="absolute inset-0 w-full h-full object-contain" style={{ filter: `blur(${blurValue}px) brightness(${0.4 + arousal * 0.006})` }} alt="unveiled" />
         <img src={currentChar.images.clothed} className="absolute inset-0 w-full h-full object-contain transition-opacity duration-1000" style={{ opacity: clothesOpacity, filter: 'brightness(0.6)' }} alt="clothed" />
       </div>
+
       <div className="absolute top-0 left-0 right-0 z-50 p-4 flex justify-between items-start">
-         <button onClick={returnToMenu} className="p-2 bg-black/20 rounded-full backdrop-blur-sm"><Home size={18} /></button>
+         <button onClick={() => { if(currentAudioRef.current) currentAudioRef.current.pause(); setGameState('intro'); }} className="p-2 bg-black/20 rounded-full backdrop-blur-sm border border-white/5"><Home size={18} /></button>
          <div className="flex flex-col items-center">
             <div className="flex items-center gap-1.5 bg-black/40 px-4 py-1.5 rounded-full border border-white/5">
               <Heart size={12} className="text-pink-500" />
@@ -397,23 +411,29 @@ function WordGame() {
          </div>
          <div className="w-8"></div>
       </div>
+
       {(gameState === 'ready' || gameState === 'gameover') && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50">
-          <button onClick={startGame} className="px-12 py-4 bg-pink-600 rounded-full font-bold text-lg">{gameState === 'gameover' ? 'もう一度' : '対話を開始'}</button>
+        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
+          <h2 className="text-4xl font-black mb-8">{gameState === 'gameover' ? (gameResult === 'win' ? 'VICTORY!!' : 'GAME OVER') : 'READY?'}</h2>
+          <button onClick={() => { setGameState('playing'); setArousal(0); setHistory([]); setDisplayKana(startKanaSetting); saveGameProgress(0, startKanaSetting, [], selectedCharKey); speak(`始めましょう。最初は「${startKanaSetting}」からよ。`, "妖艶に"); }} className="px-12 py-4 bg-pink-600 rounded-full font-bold text-lg shadow-2xl">
+            {gameState === 'gameover' ? 'もう一度' : '対話を開始'}
+          </button>
         </div>
       )}
+
       {gameState === 'playing' && (
-        <div className="absolute bottom-0 left-0 right-0 z-30 flex flex-col items-center pb-8">
+        <div className="absolute bottom-0 left-0 right-0 z-30 flex flex-col items-center pb-8 bg-gradient-to-t from-black/80 to-transparent">
           <div className="w-full px-8 min-h-[40px] flex items-end justify-center mb-6">
             {aiResponseText && !isListening && <p className="text-xl font-medium text-center">{aiResponseText}</p>}
             {!isListening && !aiResponseText && playerInputText && <p className="text-2xl text-pink-200 font-bold animate-pulse">{playerInputText}・・・</p>}
+            {isThinking && <div className="flex gap-1"><div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce" /><div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce [animation-delay:0.2s]" /><div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce [animation-delay:0.4s]" /></div>}
           </div>
           <div className="flex items-center gap-6">
             <div className="flex flex-col items-center bg-black/40 px-4 py-2 rounded-xl border border-white/10">
               <span className="text-[9px] text-zinc-500 font-bold">NEXT</span>
               <div className="text-3xl font-black">{displayKana}</div>
             </div>
-            <button onClick={handleMicClick} disabled={isSpeaking || isThinking} className={`w-14 h-14 rounded-full flex items-center justify-center ${isListening ? 'bg-red-500 animate-pulse' : 'bg-zinc-100 text-black'}`}>
+            <button onClick={() => { if(isListening) recognitionRef.current.stop(); else { setAiResponseText(''); setPlayerInputText(''); recognitionRef.current.start(); } }} disabled={isSpeaking || isThinking} className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${isListening ? 'bg-red-500 animate-pulse' : 'bg-zinc-100 text-black shadow-xl hover:scale-105'}`}>
               {isListening ? <Activity size={24} /> : <Mic size={24} />}
             </button>
           </div>
