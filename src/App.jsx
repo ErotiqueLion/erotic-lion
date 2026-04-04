@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, Component } from 'react';
-import { Mic, Activity, Settings, XCircle, Heart, Home, Upload, HelpCircle, Lock, Unlock, ChevronLeft, Save } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Mic, Activity, Settings, Heart, Home, Upload, HelpCircle, Lock, Unlock, ChevronLeft } from 'lucide-react';
 
 // --- Firebase Setup ---
 import { initializeApp } from 'firebase/app';
@@ -108,10 +108,12 @@ function WordGame() {
   const [aiResponseText, setAiResponseText] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [gameResult, setGameResult] = useState(null);
+  const [micError, setMicError] = useState(null);
 
   const recognitionRef = useRef(null);
   const currentAudioRef = useRef(null);
   const fileInputRef = useRef(null);
+  const lastTranscriptRef = useRef(""); 
   const [currentEditingImageType, setCurrentEditingImageType] = useState(null);
   const isBusyRef = useRef(false);
   const stateRef = useRef({ arousal, displayKana, history, selectedCharKey, charConfigs, gameState });
@@ -165,20 +167,50 @@ function WordGame() {
 
   const initRecognition = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return false;
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'ja-JP';
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.onstart = () => setIsListening(true);
-    recognition.onresult = (e) => {
-      const text = e.results[0][0].transcript;
-      setPlayerInputText(text);
-      handlePlayerInput(text);
-    };
-    recognition.onend = () => setIsListening(false);
-    recognitionRef.current = recognition;
-    return true;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'ja-JP';
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+      
+      recognition.onstart = () => { setIsListening(true); lastTranscriptRef.current = ""; };
+      recognition.onresult = (e) => {
+        let finalTranscript = "";
+        for (let i = e.resultIndex; i < e.results.length; ++i) {
+          if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript;
+          else lastTranscriptRef.current = e.results[i][0].transcript;
+        }
+        if (finalTranscript) {
+          lastTranscriptRef.current = "";
+          setPlayerInputText(finalTranscript);
+          handlePlayerInput(finalTranscript);
+        }
+      };
+      recognition.onend = () => {
+        setIsListening(false);
+        if (lastTranscriptRef.current && !isBusyRef.current) {
+            const lastText = lastTranscriptRef.current;
+            lastTranscriptRef.current = "";
+            setPlayerInputText(lastText);
+            handlePlayerInput(lastText);
+        }
+      };
+      recognition.onerror = () => setIsListening(false);
+      recognitionRef.current = recognition;
+      return true;
+    }
+    return false;
+  };
+
+  const requestMicAndInit = async () => {
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      return initRecognition();
+    } catch (err) {
+      setMicError("マイクの使用が許可されませんでした。");
+      return false;
+    }
   };
 
   const speak = async (text, inst, nextKanaUpdate = null, isGameOverCall = false) => {
@@ -256,6 +288,23 @@ function WordGame() {
     else { setPasscodeError('合言葉が違います'); setPasscode(''); }
   };
 
+  const handleStartNewGame = async () => {
+    if (await requestMicAndInit()) setGameState('character_select');
+  };
+
+  const handleResumeGame = async () => {
+    if (await requestMicAndInit()) {
+      if (savedData) {
+        setSelectedCharKey(savedData.selectedCharKey);
+        setArousal(savedData.arousal);
+        setDisplayKana(savedData.displayKana);
+        setHistory(savedData.history || []);
+        setGameState('playing');
+        speak(`おかえりなさい。続きは「${savedData.displayKana}」からよ。`, "妖艶に");
+      }
+    }
+  };
+
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -294,8 +343,9 @@ function WordGame() {
         </div>
         <h1 className="text-4xl font-black text-white mb-12 tracking-widest">淫らな尻とり</h1>
         <div className="flex flex-col gap-4 w-full max-w-xs">
-          {hasSaveData && <button onClick={() => { setSelectedCharKey(savedData.selectedCharKey); setArousal(savedData.arousal); setDisplayKana(savedData.displayKana); setHistory(savedData.history); initRecognition(); setGameState('playing'); speak(`おかえりなさい。続きから始めましょう。`, "妖艶に"); }} className="py-4 bg-white/10 border border-white/20 rounded-full text-white font-bold">続きから</button>}
-          <button onClick={() => { initRecognition(); setGameState('character_select'); }} className="py-4 bg-pink-600 rounded-full text-white font-bold shadow-xl">開始する</button>
+          {hasSaveData && <button onClick={handleResumeGame} className="py-4 bg-white/10 border border-white/20 rounded-full text-white font-bold">続きから</button>}
+          <button onClick={handleStartNewGame} className="py-4 bg-pink-600 rounded-full text-white font-bold shadow-xl">開始する</button>
+          {micError && <p className="text-red-400 text-xs text-center mt-2">{micError}</p>}
         </div>
       </div>
     );
@@ -433,7 +483,7 @@ function WordGame() {
               <span className="text-[9px] text-zinc-500 font-bold">NEXT</span>
               <div className="text-3xl font-black">{displayKana}</div>
             </div>
-            <button onClick={() => { if(isListening) recognitionRef.current.stop(); else { setAiResponseText(''); setPlayerInputText(''); recognitionRef.current.start(); } }} disabled={isSpeaking || isThinking} className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${isListening ? 'bg-red-500 animate-pulse' : 'bg-zinc-100 text-black shadow-xl hover:scale-105'}`}>
+            <button onClick={() => { if(isListening) recognitionRef.current?.stop(); else { setAiResponseText(''); setPlayerInputText(''); recognitionRef.current?.start(); } }} disabled={isSpeaking || isThinking} className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${isListening ? 'bg-red-500 animate-pulse' : 'bg-zinc-100 text-black shadow-xl hover:scale-105'}`}>
               {isListening ? <Activity size={24} /> : <Mic size={24} />}
             </button>
           </div>
