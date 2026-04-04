@@ -44,7 +44,7 @@ const INITIAL_CHARACTERS = {
       unveiled: "https://images.unsplash.com/photo-1531123897727-8f129e16fd3c?auto=format&fit=crop&w=800&q=80",
     },
     color: "#3b82f6",
-    voice: "ja-JP-Neural2-C", 
+    voice: "ja-JP-Wavenet-B", 
     prompt: "あなたは冷徹な令嬢ですが、プレイヤーの攻めに屈し、プライドという名の服が脱げ去っていく屈辱と生々しい快楽を表現してください。"
   },
   marin: {
@@ -67,18 +67,19 @@ const getSystemPrompt = (char, arousal, currentKana, history) => {
 セリフは1行に制限せず、感情の入ったリアルな反応を2〜3文で返してください。
 
 【しりとり厳格ルール】
-1. プレイヤーは必ず「${currentKana}」から始まる名詞を言わなければなりません。
-2. 既に出た単語を使用してはいけません。
-3. 語尾が「ん」で終了した場合は player_lost を true にしてください。
+1. プレイヤーは必ず「${currentKana}」から始まる名詞を言わなければなりません。あなたが返す単語も絶対に「${currentKana}」から始まらなければなりません。
+2. 既に出た単語（履歴にある単語）を使用してはいけません。
+3. 語尾が「ん」で終了した場合は player_lost を true にしてください。（あなた自身は「ん」で終わる単語を言ってはいけません）
 4. プレイヤーの言葉がエッチで興奮するものの場合は「arousal_inc」を15〜30のプラス値に、つまらない場合はマイナス値にしてください。
 
 履歴: [${history.join(', ')}]
 
 レスポンスは必ず以下のJSON形式で:
 {
+  "thought_process": "「${currentKana}」から始まる単語を考える思考プロセス。既出単語を避け、ルールに適合した語を選ぶ確認作業。",
   "feedback": "あなたのリアルで生々しいセリフ（喘ぎや間を含む）",
-  "word": "あなたのしりとりの回答(名詞)",
-  "word_reading": "回答のよみ",
+  "word": "あなたのしりとりの回答(名詞。必ず${currentKana}から始まること)",
+  "word_reading": "回答のよみひらがな",
   "next_kana": "次の文字",
   "arousal_inc": 15,
   "valid": true,
@@ -267,17 +268,17 @@ function WordGame() {
       // (笑)や(照れ)などの思考・ト書きタグは音声にならないよう除去
       let ssmlText = text.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
       
-      // 息遣いや「間」をSSMLタグに変換してリアルさを出す
+      // 息遣いや「間」をSSMLタグに変換してリアルさを出す (以前の設定よりポーズを少し自然に調整)
       ssmlText = ssmlText
-        .replace(/…{2,}|(\.\.\.)/g, '<break time="800ms"/>')
-        .replace(/…/g, '<break time="500ms"/>')
+        .replace(/…{2,}|(\.\.\.)/g, '<break time="600ms"/>')
+        .replace(/…/g, '<break time="400ms"/>')
         .replace(/、/g, '、<break time="200ms"/>')
         .replace(/っ/g, 'っ<break time="150ms"/>')
         .replace(/「|」/g, '<break time="100ms"/>'); // カギカッコも微細な間に
 
-      // 欲情度に応じてピッチ(少し高く)と読み上げ速度(少し遅く、息苦しく)を変化
-      const pitch = (speakArousal * 0.02).toFixed(1); // 0.0 to +2.0st
-      const speakingRate = Math.max(0.80, 1.0 - (speakArousal * 0.002)).toFixed(2); // 1.0 down to ~0.80
+      // 欲情度に応じてピッチ(少し高く)と読み上げ速度(少し遅く、息苦しく)を変化。より自然な範囲に制限。
+      const pitch = (speakArousal * 0.01).toFixed(1); // 0.0 to +1.0st (過剰な変調を防ぐ)
+      const speakingRate = Math.max(0.85, 1.0 - (speakArousal * 0.0015)).toFixed(2); // 1.0 down to ~0.85
 
       const ssmlContent = `<speak><prosody pitch="+${pitch}st" rate="${speakingRate}">${ssmlText}</prosody></speak>`;
 
