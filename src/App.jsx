@@ -324,10 +324,27 @@ function WordGame() {
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: getSystemPrompt(s.charConfigs[s.selectedCharKey], s.arousal, s.displayKana, s.history) }] },
           contents: [{ parts: [{ text: input }] }],
-          generationConfig: { responseMimeType: "application/json" }
+          generationConfig: { responseMimeType: "application/json" },
+          safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+          ]
         })
       });
-      const data = await res.json();
+      
+      const rawText = await res.text();
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch (err) {
+        throw new Error("APIレスポンスのパースに失敗しました（VercelではなくVite単体で動いている可能性があります）");
+      }
+
+      if (data.error) throw new Error(data.error);
+      if (!data.candidates || !data.candidates[0].content) throw new Error("APIエラー、または安全フィルターによるブロック: " + JSON.stringify(data));
+
       const result = JSON.parse(data.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim());
       setIsThinking(false);
 
@@ -351,7 +368,12 @@ function WordGame() {
         saveGameProgress(nextA, nextK, newHistory, s.selectedCharKey);
         speak(`${result.feedback}……「${result.word}」よ。`, result.tts_instruction, nextK, false, nextA);
       }
-    } catch (e) { setIsThinking(false); isBusyRef.current = false; }
+    } catch (e) {
+      console.error(e);
+      setAiResponseText("エラーが発生しました: " + e.message);
+      setIsThinking(false);
+      isBusyRef.current = false;
+    }
   };
 
   const handleUnlock = () => {
@@ -597,8 +619,8 @@ function WordGame() {
                   if(isListening) recognitionRef.current?.stop(); 
                   else { setAiResponseText(''); setPlayerInputText(''); recognitionRef.current?.start(); } 
                 }} 
-                disabled={isSpeaking || isThinking} 
-                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${isListening ? 'bg-red-500 animate-pulse shadow-lg shadow-red-500/50' : 'bg-zinc-100 text-black shadow-xl hover:scale-105'}`}
+                disabled={isSpeaking || isThinking || isBusyRef.current} 
+                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${isListening ? 'bg-red-500 animate-pulse shadow-lg shadow-red-500/50' : 'bg-zinc-100 text-black shadow-xl hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed'}`}
               >
                 {isListening ? <Activity size={28} /> : <Mic size={28} />}
               </button>
