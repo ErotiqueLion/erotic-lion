@@ -34,7 +34,7 @@ const INITIAL_CHARACTERS = {
     },
     color: "#ec4899",
     voice: "ja-JP-Neural2-B", 
-    prompt: "あなたは妖艶な成熟したお姉さんです。プレイヤーの卑猥な言葉に、表面上の理性が少しずつ剥がれ落ち、本能が露わになっていく様子を演じてください。返信は非常に短く、1行で完結させてください。"
+    prompt: "あなたは妖艶な成熟したお姉さんです。プレイヤーの卑猥な言葉に、表面上の理性が少しずつ剥がれ落ち、本能が露わになっていく様子を生々しく演じてください。"
   },
   shizuka: {
     name: "静香",
@@ -45,7 +45,7 @@ const INITIAL_CHARACTERS = {
     },
     color: "#3b82f6",
     voice: "ja-JP-Neural2-C", 
-    prompt: "あなたは冷徹な令嬢ですが、プレイヤーの攻めに屈し、プライドという名の服が脱げ去っていく屈辱と快楽を表現してください。返信は非常に短く、1行で完結させてください。"
+    prompt: "あなたは冷徹な令嬢ですが、プレイヤーの攻めに屈し、プライドという名の服が脱げ去っていく屈辱と生々しい快楽を表現してください。"
   },
   marin: {
     name: "真凛",
@@ -56,15 +56,18 @@ const INITIAL_CHARACTERS = {
     },
     color: "#f97316",
     voice: "ja-JP-Wavenet-A", 
-    prompt: "あなたはからかい上手な小悪魔ですが、攻められた言葉の「エッチさ」に当てられて、次第に我慢できない状態になります。返信は非常に短く、1行で完結させてください。"
+    prompt: "あなたはからかい上手な小悪魔ですが、攻められた言葉の「エッチさ」に当てられて、次第に我慢できない状態に陥っていく様子を色っぽく表現してください。"
   }
 };
 
 const getSystemPrompt = (char, arousal, currentKana, history) => {
   return `${char.prompt}
 現在の欲情度: ${arousal}%。
+欲情度が高まるにつれ、理性が飛び、言葉使いが乱れます。「はぁっ…」「んん…っ」「あっ…」などの吐息や喘ぎ声をセリフの随所に混ぜて、快楽を生々しく表現してください。
+セリフは1行に制限せず、感情の入ったリアルな反応を2〜3文で返してください。
+
 【しりとり厳格ルール】
-1. プレイヤーは必ず「${currentKana}」から始まる言葉を言わなければなりません。
+1. プレイヤーは必ず「${currentKana}」から始まる名詞を言わなければなりません。
 2. 既に出た単語を使用してはいけません。
 3. 語尾が「ん」で終了した場合は player_lost を true にしてください。
 4. プレイヤーの言葉がエッチで興奮するものの場合は「arousal_inc」を15〜30のプラス値に、つまらない場合はマイナス値にしてください。
@@ -73,8 +76,8 @@ const getSystemPrompt = (char, arousal, currentKana, history) => {
 
 レスポンスは必ず以下のJSON形式で:
 {
-  "feedback": "セリフ1行",
-  "word": "あなたの回答(名詞)",
+  "feedback": "あなたのリアルで生々しいセリフ（喘ぎや間を含む）",
+  "word": "あなたのしりとりの回答(名詞)",
   "word_reading": "回答のよみ",
   "next_kana": "次の文字",
   "arousal_inc": 15,
@@ -258,14 +261,31 @@ function WordGame() {
     }
   };
 
-  const speak = async (text, inst, nextKanaUpdate = null, isGameOverCall = false) => {
+  const speak = async (text, inst, nextKanaUpdate = null, isGameOverCall = false, speakArousal = stateRef.current.arousal) => {
     setIsSpeaking(true); isBusyRef.current = true;
     try {
+      // (笑)や(照れ)などの思考・ト書きタグは音声にならないよう除去
+      let ssmlText = text.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
+      
+      // 息遣いや「間」をSSMLタグに変換してリアルさを出す
+      ssmlText = ssmlText
+        .replace(/…{2,}|(\.\.\.)/g, '<break time="800ms"/>')
+        .replace(/…/g, '<break time="500ms"/>')
+        .replace(/、/g, '、<break time="200ms"/>')
+        .replace(/っ/g, 'っ<break time="150ms"/>')
+        .replace(/「|」/g, '<break time="100ms"/>'); // カギカッコも微細な間に
+
+      // 欲情度に応じてピッチ(少し高く)と読み上げ速度(少し遅く、息苦しく)を変化
+      const pitch = (speakArousal * 0.02).toFixed(1); // 0.0 to +2.0st
+      const speakingRate = Math.max(0.80, 1.0 - (speakArousal * 0.002)).toFixed(2); // 1.0 down to ~0.80
+
+      const ssmlContent = `<speak><prosody pitch="+${pitch}st" rate="${speakingRate}">${ssmlText}</prosody></speak>`;
+
       const res = await fetch(`/api/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          input: { text },
+          input: { ssml: ssmlContent },
           voice: { languageCode: 'ja-JP', name: charConfigs[stateRef.current.selectedCharKey].voice },
           audioConfig: { audioEncoding: 'MP3' }
         })
@@ -325,10 +345,10 @@ function WordGame() {
 
       if (result.player_lost || result.sister_lost || nextA >= MAX_AROUSAL) {
         setGameResult(nextA >= MAX_AROUSAL ? 'win' : 'lose');
-        clearSaveData(); speak(result.feedback, "絶頂", null, true);
+        clearSaveData(); speak(result.feedback, "絶頂", null, true, nextA);
       } else {
         saveGameProgress(nextA, nextK, newHistory, s.selectedCharKey);
-        speak(`${result.feedback}……「${result.word}」よ。`, result.tts_instruction, nextK);
+        speak(`${result.feedback}……「${result.word}」よ。`, result.tts_instruction, nextK, false, nextA);
       }
     } catch (e) { setIsThinking(false); isBusyRef.current = false; }
   };
