@@ -207,9 +207,11 @@ function WordGame() {
     return false;
   };
 
+  // 劇的修正点：マイクが無い/拒否されても絶対にフリーズさせない
   const handleStartNewGame = async () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     
+    // もしブラウザが音声認識に非対応なら、即座にテキストモードで進む
     if (!SpeechRecognition) {
       setUseTextInput(true);
       setGameState('character_select');
@@ -221,6 +223,7 @@ function WordGame() {
       initRecognition();
       setGameState('character_select');
     } catch (err) {
+      // マイクがブロックされた場合も、テキストモードで救済して進む
       setUseTextInput(true);
       setGameState('character_select');
     }
@@ -281,13 +284,14 @@ function WordGame() {
         setAiResponseText(text); setIsSpeaking(false); isBusyRef.current = false;
         if (isGameOverCall) setGameState('gameover');
       }
-    } catch (e) { setIsSpeaking(false); isBusyRef.current = false; console.error("TTS Error:", e) }
+    } catch (e) { setIsSpeaking(false); isBusyRef.current = false; }
   };
 
   const handlePlayerInput = async (input) => {
     if (!input || isBusyRef.current) return;
     const s = stateRef.current;
     
+    // 入力された文字を画面に表示
     setPlayerInputText(input);
     setIsThinking(true); 
     isBusyRef.current = true;
@@ -303,25 +307,7 @@ function WordGame() {
         })
       });
       const data = await res.json();
-      
-      if(data.error) {
-          console.error("Gemini API Error:", data.error);
-          setIsThinking(false);
-          isBusyRef.current = false;
-          setAiResponseText("APIエラーが発生しました。");
-          return;
-      }
-
-      const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      
-      if(!resultText) {
-          console.error("Invalid response from Gemini:", data);
-           setIsThinking(false);
-           isBusyRef.current = false;
-           return;
-      }
-
-      const result = JSON.parse(resultText.replace(/```json|```/g, '').trim());
+      const result = JSON.parse(data.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim());
       setIsThinking(false);
 
       if (!result.valid) { speak(result.feedback || "ルール違反よ。", "優しく"); return; }
@@ -344,7 +330,7 @@ function WordGame() {
         saveGameProgress(nextA, nextK, newHistory, s.selectedCharKey);
         speak(`${result.feedback}……「${result.word}」よ。`, result.tts_instruction, nextK);
       }
-    } catch (e) { setIsThinking(false); isBusyRef.current = false; console.error("Chat Error:", e) }
+    } catch (e) { setIsThinking(false); isBusyRef.current = false; }
   };
 
   const handleUnlock = () => {
@@ -385,6 +371,7 @@ function WordGame() {
     return (
       <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center p-6 z-[100]">
         
+        {/* 見切れないように、タイトルとボタンを中央に配置するよう劇的変更！ */}
         <h1 className="text-4xl md:text-5xl font-black text-white mb-8 tracking-widest drop-shadow-lg text-center">淫らな尻とり</h1>
         
         <div className="flex gap-8 mb-12">
@@ -487,6 +474,7 @@ function WordGame() {
             <li>エッチな言葉ほど、お姉さんの「欲情度」が上がります。</li>
             <li>欲情度が100%になると、お姉さんが限界を迎えてあなたの勝利です。</li>
             <li>「ん」で終わる言葉を言ったり、ルールを破るとあなたの負けです。</li>
+            {/* テキストモードの説明も追加 */}
             <li className="text-pink-400 mt-4 list-none">※マイクが使えない環境でも、文字入力モードで遊ぶことができます。</li>
           </ul>
           <button onClick={() => setGameState('intro')} className="w-full mt-8 py-3 bg-zinc-100 text-black font-bold rounded-xl">分かった</button>
@@ -530,9 +518,11 @@ function WordGame() {
       {gameState === 'playing' && (
         <div className="absolute bottom-0 left-0 right-0 z-30 flex flex-col items-center pb-8 bg-gradient-to-t from-black/90 via-black/70 to-transparent pt-12">
           
+          {/* AIの反応や自分の入力した文字を表示するエリア */}
           <div className="w-full px-8 min-h-[40px] flex flex-col items-center justify-end mb-6">
             {aiResponseText && !isListening && <p className="text-xl font-medium text-center mb-2 drop-shadow-md">{aiResponseText}</p>}
             
+            {/* テキスト入力モードの時は、話した言葉の表示を少し変える */}
             {(!isListening && playerInputText && !aiResponseText) && (
               <p className="text-2xl text-pink-200 font-bold animate-pulse drop-shadow-md">{playerInputText}・・・</p>
             )}
@@ -546,6 +536,7 @@ function WordGame() {
             )}
           </div>
 
+          {/* コントロールエリア（マイク or テキスト入力） */}
           <div className="w-full flex justify-center items-center gap-4 px-4 max-w-lg mx-auto">
             
             <div className="flex flex-col items-center bg-black/60 px-4 py-2 rounded-xl border border-white/10 shadow-inner">
@@ -553,6 +544,7 @@ function WordGame() {
               <div className="text-3xl font-black text-white drop-shadow-md">{displayKana}</div>
             </div>
 
+            {/* スマホ等でマイクが使えない場合のテキスト入力モード */}
             {useTextInput ? (
               <div className="flex-1 flex gap-2">
                 <input 
@@ -578,6 +570,7 @@ function WordGame() {
                 </button>
               </div>
             ) : (
+              /* 通常のマイクボタン */
               <button 
                 onClick={() => { 
                   if(isListening) recognitionRef.current?.stop(); 
