@@ -1,0 +1,7 @@
+GoogleCloud
+Cloud Text-to-Speech API
+key:AIzaSyC_p4GeSsoSuiffECK6M5H1DL0HzRdqdiI
+
+GoogleAIStudio
+EWC_API
+AIzaSyAyujjSoAJc1ay_w3SomJNBkg5mleeLwd0
