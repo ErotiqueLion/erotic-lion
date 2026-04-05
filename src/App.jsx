@@ -343,7 +343,8 @@ function WordGame() {
         return;
       }
 
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${geminiApiKey}`, {
+      // Gemini 2.5の空応答(過剰な安全フィルター)を避けるため、ロールプレイに強いgemini-1.5-proを使用する
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
