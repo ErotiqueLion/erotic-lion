@@ -47,7 +47,7 @@ const INITIAL_CHARACTERS = {
     color: "#3b82f6",
     voice: "Aoede", 
     gcpVoice: "ja-JP-Neural2-B",
-    prompt: "あなたは誇り高い令嬢を演じてください。冷徹な態度の裏に潜む、相手への抗いがたい関心と、次第にかき乱されていく心の動揺を情熱的に表現してください。"
+    prompt: "あなたは冷徹な令嬢ですが、プレイヤーの攻めに屈し、プライドという名の服が脱げ去っていく屈辱と生々しい快楽を表現してください。"
   },
   marin: {
     name: "真凛",
@@ -59,7 +59,7 @@ const INITIAL_CHARACTERS = {
     color: "#f97316",
     voice: "Leda", 
     gcpVoice: "ja-JP-Neural2-F",
-    prompt: "あなたはからかい上手な小悪魔を演じてください。からかうはずの相手の、予期せぬ情熱的な攻めによって、次第に余裕をなくし、翻弄されていく様子を情緒たっぷりに表現してください。"
+    prompt: "あなたはからかい上手な小悪魔ですが、攻められた言葉の「エッチさ」に当てられて、次第に我慢できない状態に陥っていく様子を色っぽく表現してください。"
   }
 };
 
@@ -436,12 +436,12 @@ function WordGame() {
       }
 
       const systemText = getSystemPrompt(s.charConfigs[s.selectedCharKey], s.arousal, s.displayKana, s.history);
-      const callGemini = async (userText) => {
+      const callGemini = async (userText, sysText = systemText) => {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            system_instruction: { parts: [{ text: systemText }] },
+            system_instruction: { parts: [{ text: sysText }] },
             contents: [{ parts: [{ text: userText }] }],
             generationConfig: { responseMimeType: "application/json" },
             safetySettings: [
@@ -464,12 +464,14 @@ function WordGame() {
         return candidate?.content?.parts?.[0]?.text || null;
       };
 
-      // 1回目の試行
+      // 1回目の試行 (本来のプロンプト)
       let rawText = await callGemini(input);
 
-      // 空レスポンスの場合、プレーンな言い回しでリトライ
+      // 空レスポンスの場合、システム指示を「安全なもの」に差し替えてリトライ
       if (!rawText) {
-        rawText = await callGemini(`プレイヤーが「${input}」と言いました。ゲームのルールに従ってJSONで応答してください。`);
+        console.log("Retrying with safe system prompt...");
+        const safeSys = "あなたは優秀なシリトリAIです。必ずJSON形式で、valid, feedback, word, word_reading, next_kana, arousal_inc を返してください。";
+        rawText = await callGemini(`プレイヤーが「${input}」と言いました。ゲームのルールに従って、当たり障りのない表現でJSON応答してください。`, safeSys);
       }
 
       if (!rawText) throw new Error("AIから応答が得られませんでした（安全フィルター等）。別の言い方で試してみてください。");
