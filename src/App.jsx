@@ -467,11 +467,11 @@ function WordGame() {
       // 1回目の試行 (本来のプロンプト)
       let rawText = await callGemini(input);
 
-      // 空レスポンスの場合、システム指示を「安全なもの」に差し替えてリトライ
+      // 空レスポンスの場合（安全フィルター等）、システム指示を「安全なもの」に差し替えてリトライ
       if (!rawText) {
         console.log("Retrying with safe system prompt...");
-        const safeSys = "あなたは優秀なシリトリAIです。プレイヤーの単語を絶対に繰り返さないでください。必ずJSON形式で、valid, feedback, word, word_reading, next_kana, arousal_inc を返してください。";
-        rawText = await callGemini(`プレイヤーが「${input}」と言いました。ゲームのルールに従って、別の単語を使いJSON応答してください。`, safeSys);
+        const safeSys = `あなたは優秀なしりとりAIです。必ず「${s.displayKana}」から始まる単語を答えてください。プレイヤーの単語「${input}」を繰り返したり、「ん」で終わる単語を言うのは厳禁です。必ず指定のJSON形式（valid, feedback, word, word_reading, next_kana, arousal_inc）のみを返してください。`;
+        rawText = await callGemini(`次は「${s.displayKana}」から始まる言葉です。プレイヤーは「${input}」と言いました。あなたは「${s.displayKana}」から始まる別の単語を使ってJSONで応答してください。`, safeSys);
       }
 
       if (!rawText) throw new Error("AIから応答が得られませんでした（安全フィルター等）。別の言い方で試してみてください。");
