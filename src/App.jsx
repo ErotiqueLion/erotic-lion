@@ -343,30 +343,38 @@ function WordGame() {
         return;
       }
 
-      // 無料枠APIでも確実に対応している gemini-1.5-flash を利用する
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: getSystemPrompt(s.charConfigs[s.selectedCharKey], s.arousal, s.displayKana, s.history) }] },
-          contents: [{ parts: [{ text: input }] }],
-          generationConfig: { responseMimeType: "application/json" },
-          safetySettings: [
-            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-          ]
-        })
-      });
-      
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-      if (!data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-        throw new Error("APIエラー、または安全フィルターによるブロック: " + JSON.stringify(data));
+      const systemText = getSystemPrompt(s.charConfigs[s.selectedCharKey], s.arousal, s.displayKana, s.history);
+      const callGemini = async (userText) => {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemText }] },
+            contents: [{ parts: [{ text: userText }] }],
+            generationConfig: { responseMimeType: "application/json" },
+            safetySettings: [
+              { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+              { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+              { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+              { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+            ]
+          })
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+        return data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+      };
+
+      // 1回目の試行
+      let rawText = await callGemini(input);
+
+      // 空レスポンスの場合、プレーンな言い回しでリトライ
+      if (!rawText) {
+        rawText = await callGemini(`プレイヤーが「${input}」と言いました。ゲームのルールに従ってJSONで応答してください。`);
       }
 
-      const rawText = data.candidates[0].content.parts[0].text;
+      if (!rawText) throw new Error("AIから応答が得られませんでした（安全フィルター等）");
+
       const result = JSON.parse(rawText.replace(/```json|```/g, '').trim());
       setIsThinking(false);
 
