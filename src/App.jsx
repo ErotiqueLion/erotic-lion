@@ -758,9 +758,10 @@ function WordGame() {
          <button onClick={() => {
            if(currentAudioRef.current) currentAudioRef.current.pause();
            window.speechSynthesis?.cancel();
-           // 画面表示・ロック状態をクリアしてホームへ
+           // 画面表示・ゲーム状態・ロックを完全リセットしてホームへ
            setAiResponseText(''); setPlayerInputText('');
            setIsThinking(false); setIsSpeaking(false); isBusyRef.current = false;
+           setArousal(0); setHistory([]); setDisplayKana(startKanaSetting); setGameResult(null);
            setGameState('intro');
          }} className="p-2 bg-black/20 rounded-full backdrop-blur-sm border border-white/5"><Home size={18} /></button>
          <div className="flex flex-col items-center">
