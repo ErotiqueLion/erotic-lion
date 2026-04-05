@@ -81,7 +81,7 @@ The REQUIRED starting character is "${currentKana}".
 Respond ONLY in the following JSON format (no markdown, no extra text):
 {
   "thought_process": "I need a word starting with ${currentKana}. Checking history... Chosen word: ...",
-  "feedback": "your passionate Japanese in-character response (2-3 sentences)",
+  "feedback": "your passionate Japanese in-character response (2-3 sentences), reflecting arousal ${arousal}%",
   "word": "your shiritori word in kanji/kana (MUST start with ${currentKana})",
   "word_reading": "hiragana reading of your word (first char MUST be ${currentKana})",
   "next_kana": "last kana of your word (handles small kana correctly)",
@@ -89,8 +89,12 @@ Respond ONLY in the following JSON format (no markdown, no extra text):
   "valid": true,
   "player_lost": false,
   "sister_lost": false,
-  "tts_instruction": "acting direction"
-}`;
+  "tts_instruction": "detailed acting direction e.g. 'breathless', 'trembling voice', 'whispering'"
+}
+[Style Guide at Arousal > 70%]
+Use stuttering (e.g. 'あ、あぁ...') and more frequent breath marks (・・・). The language should become less composed and more focused on pleasure.
+[Style Guide for TTS Instruction]
+Provide instructions that Text-to-Speech engines can interpret, suggesting the character's internal heat and loss of control.`;
 };
 
 function WordGame() {
@@ -114,6 +118,7 @@ function WordGame() {
   const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem('erotic_wordchain_apikey') || '');
   const [gcpApiKey, setGcpApiKey] = useState(() => localStorage.getItem('erotic_wordchain_gcp_apikey') || '');
   const [ttsPriority, setTtsPriority] = useState(() => localStorage.getItem('erotic_wordchain_tts_priority') || 'gemini');
+  const [arousalMultiplier, setArousalMultiplier] = useState(() => Number(localStorage.getItem('erotic_wordchain_multiplier')) || 1.0);
 
   useEffect(() => {
     localStorage.setItem('erotic_wordchain_apikey', geminiApiKey);
@@ -126,6 +131,10 @@ function WordGame() {
   useEffect(() => {
     localStorage.setItem('erotic_wordchain_tts_priority', ttsPriority);
   }, [ttsPriority]);
+
+  useEffect(() => {
+    localStorage.setItem('erotic_wordchain_multiplier', arousalMultiplier.toString());
+  }, [arousalMultiplier]);
 
   const [useTextInput, setUseTextInput] = useState(false);
   const [inputText, setInputText] = useState("");
@@ -343,6 +352,9 @@ function WordGame() {
         const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
         currentAudioRef.current = audio;
         audio.onplay = () => { setAiResponseText(text); if (nextKanaUpdate) setDisplayKana(nextKanaUpdate); };
+        audio.playbackRate = 1.0; // Default
+        // 欲情度に応じて少しピッチを上げる（早回し気味に）
+        if (stateRef.current.arousal > 70) audio.playbackRate = 1.05;
         audio.onended = () => {
           setIsSpeaking(false); isBusyRef.current = false;
           if (isGameOverCall) setGameState('gameover');
@@ -361,7 +373,7 @@ function WordGame() {
     if (!geminiApiKey) return false;
     try {
       let cleanText = text.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
-      const ttsPrompt = `「${inst || '自然に'}」という感情を込めて言ってください：「${cleanText}」`;
+      const ttsPrompt = `「${inst || '自然に'}」という感情を込めて言ってください。現在の欲情度は${stateRef.current.arousal}%です。${stateRef.current.arousal > 70 ? 'かなり興奮して声が上ずっている様子を演じてください。' : ''}：${cleanText}`;
 
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
@@ -492,7 +504,9 @@ function WordGame() {
       const last = reading.slice(-1);
       const smallToLarge = { 'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お', 'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'っ': 'つ', 'ゎ': 'わ' };
       const nextK = smallToLarge[last] || last;
-      const nextA = Math.max(0, Math.min(MAX_AROUSAL, s.arousal + (result.arousal_inc || 15)));
+      const baseInc = result.arousal_inc || 15;
+      const finalInc = baseInc * arousalMultiplier;
+      const nextA = Math.max(0, Math.min(MAX_AROUSAL, s.arousal + finalInc));
       
       setArousal(nextA);
       const newHistory = [...s.history, input, result.word];
@@ -500,28 +514,17 @@ function WordGame() {
 
       // --- AIの単語バリデーション ---
       // AIが返した単語のよみが正しいkanaで始まるか検証する
-      const aiReading = (result.word_reading || '').trim();
-      const aiReadingNorm = aiReading.normalize('NFKC'); // 全角→半角等の正規化
-      const expectedKana = s.displayKana;
-      const aiStartsCorrectly = aiReadingNorm.startsWith(expectedKana);
-      
-      // AIが間違えた場合、単語は「???」で表示しnext_kanaもリセットしない
-      let displayWord = result.word;
-      let finalNextK = nextK;
-      if (!aiStartsCorrectly && aiReading) {
-        console.warn(`AI shiritori error: word "${result.word}" (${aiReading}) should start with "${expectedKana}"`);
-        // そのターンのAI単語はスキップしてdisplayKanaをそのままにする
-        finalNextK = expectedKana;
-        displayWord = '（ミス）';
-      }
+      // AIの回答が正しい文字で始まっているかバリデーション
+      const aiStartsCorrectly = (result.word_reading || '').trim().normalize('NFKC').startsWith(s.displayKana);
+      const finalNextK = aiStartsCorrectly ? nextK : s.displayKana;
+      const wordDisplay = aiStartsCorrectly ? `……「${result.word}」よ。` : `……うまく言えなかったわ。もう一度「${s.displayKana}」からよ。`;
 
       if (result.player_lost || result.sister_lost || nextA >= MAX_AROUSAL) {
         setGameResult(nextA >= MAX_AROUSAL ? 'win' : 'lose');
-        clearSaveData(); speak(result.feedback, "絶頂", null, true, nextA);
+        clearSaveData(); speak(result.feedback, "絶頂", null, true);
       } else {
         saveGameProgress(nextA, finalNextK, newHistory, s.selectedCharKey);
-        const wordDisplay = aiStartsCorrectly ? `……「${result.word}」よ。` : `……うまく言えなかったわ。もう一度「${expectedKana}」からよ。`;
-        speak(`${result.feedback}${wordDisplay}`, result.tts_instruction, finalNextK, false, nextA);
+        speak(`${result.feedback}${wordDisplay}`, result.tts_instruction, finalNextK, false);
       }
     } catch (e) {
       console.error(e);
@@ -703,6 +706,15 @@ function WordGame() {
             <label className="block text-sm font-bold mb-2">最初の文字</label>
             <input type="text" value={startKanaSetting} onChange={(e) => setStartKanaSetting(e.target.value)} className="w-full bg-black border border-zinc-700 p-3 rounded-xl text-center text-xl" />
           </div>
+
+          <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 mb-8">
+            <label className="block text-sm font-bold mb-1">感度倍率（欲情度の上がりやすさ）</label>
+            <p className="text-[10px] text-zinc-500 mb-4">高いほど、一言で相手を興奮させやすくなります。</p>
+            <div className="flex items-center gap-4">
+               <input type="range" min="0.5" max="3.0" step="0.1" value={arousalMultiplier} onChange={(e) => setArousalMultiplier(Number(e.target.value))} className="flex-1 accent-pink-600" />
+               <span className="w-12 text-center font-bold text-pink-500">{arousalMultiplier.toFixed(1)}x</span>
+            </div>
+          </div>
           <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800">
             <div className="flex gap-2 mb-6">
               {Object.keys(charConfigs).map(k => (
@@ -763,6 +775,36 @@ function WordGame() {
 
   return (
     <div className="fixed inset-0 bg-black text-white flex flex-col overflow-hidden font-sans">
+      <style>{`
+        @keyframes pulse-vignette {
+          0%, 100% { box-shadow: inset 0 0 80px rgba(220, 38, 38, 0.2); }
+          50% { box-shadow: inset 0 0 150px rgba(220, 38, 38, 0.4); }
+        }
+        .vignette-pulse {
+          animation: pulse-vignette 4s ease-in-out infinite;
+        }
+        @keyframes heart-beat {
+          0%, 100% { transform: scale(1); }
+          20% { transform: scale(1.2); }
+          40% { transform: scale(1.1); }
+          60% { transform: scale(1.3); }
+        }
+        .heart-active {
+          animation: heart-beat var(--heart-speed, 1s) ease-in-out infinite;
+        }
+      `}</style>
+
+      {/* 画面端の脈打ち演出 (AROUSAL 50%以上で徐々に濃くなる) */}
+      {arousal > 40 && (
+        <div 
+          className="absolute inset-0 z-10 pointer-events-none vignette-pulse" 
+          style={{ 
+            opacity: Math.min(1, (arousal - 40) / 60),
+            animationDuration: `${Math.max(1, 4 - (arousal / 30))}s` 
+          }} 
+        />
+      )}
+
       <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
         <img src={currentChar.images.unveiled} className="absolute inset-0 w-full h-full object-contain" style={{ filter: `blur(${blurValue}px) brightness(${0.4 + arousal * 0.006})` }} alt="unveiled" />
         <img src={currentChar.images.clothed} className="absolute inset-0 w-full h-full object-contain transition-opacity duration-1000" style={{ opacity: clothesOpacity, filter: 'brightness(0.6)' }} alt="clothed" />
@@ -772,7 +814,11 @@ function WordGame() {
          <button onClick={() => { if(currentAudioRef.current) currentAudioRef.current.pause(); setGameState('intro'); }} className="p-2 bg-black/20 rounded-full backdrop-blur-sm border border-white/5"><Home size={18} /></button>
          <div className="flex flex-col items-center">
             <div className="flex items-center gap-1.5 bg-black/40 px-4 py-1.5 rounded-full border border-white/5">
-              <Heart size={12} className="text-pink-500" />
+              <Heart 
+                size={14} 
+                className={`text-pink-500 ${arousal > 0 ? 'heart-active' : ''}`} 
+                style={{ '--heart-speed': `${Math.max(0.3, 1.5 - (arousal / 80))}s` }}
+              />
               <span className="text-sm font-bold">{arousal}%</span>
             </div>
          </div>
