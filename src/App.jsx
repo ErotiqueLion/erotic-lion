@@ -34,7 +34,7 @@ const INITIAL_CHARACTERS = {
     },
     color: "#ec4899",
     voice: "Kore", 
-    gcpVoice: "ja-JP-Journey-F",
+    gcpVoice: "ja-JP-Neural2-B",
     prompt: "あなたは妖艶な成熟したお姉さんです。プレイヤーの卑猥な言葉に、表面上の理性が少しずつ剥がれ落ち、本能が露わになっていく様子を生々しく演じてください。"
   },
   shizuka: {
@@ -58,6 +58,7 @@ const INITIAL_CHARACTERS = {
     },
     color: "#f97316",
     voice: "Leda", 
+    gcpVoice: "ja-JP-Neural2-F",
     prompt: "あなたはからかい上手な小悪魔ですが、攻められた言葉の「エッチさ」に当てられて、次第に我慢できない状態に陥っていく様子を色っぽく表現してください。"
   }
 };
@@ -436,7 +437,7 @@ function WordGame() {
 
       const systemText = getSystemPrompt(s.charConfigs[s.selectedCharKey], s.arousal, s.displayKana, s.history);
       const callGemini = async (userText) => {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
