@@ -151,7 +151,9 @@ function WordGame() {
   const recognitionRef = useRef(null);
   const currentAudioRef = useRef(null);
   const fileInputRef = useRef(null);
-  const lastTranscriptRef = useRef(""); 
+  const lastTranscriptRef = useRef("");
+  // Gemini TTS クォータ超過フラグ（429検知後はセッション内でスキップ）
+  const geminiTtsQuotaRef = useRef(false);
   const [currentEditingImageType, setCurrentEditingImageType] = useState(null);
   const isBusyRef = useRef(false);
   const stateRef = useRef({ arousal, displayKana, history, selectedCharKey, charConfigs, gameState });
@@ -308,7 +310,7 @@ function WordGame() {
   };
 
   const speakWithGemini = async (text, inst, nextKanaUpdate, isGameOverCall) => {
-    if (!geminiApiKey) return false;
+    if (!geminiApiKey || geminiTtsQuotaRef.current) return false;
     try {
       let cleanText = text.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
       // TTS プロンプトは感情指示とセリフのみ（欲情度・過激表現を含めると空レスポンスになる）
@@ -356,7 +358,14 @@ function WordGame() {
         return true;
       }
     } catch (e) {
-      console.warn("Gemini TTS failed:", e.message);
+      if (e.message?.includes('quota') || e.message?.includes('429')) {
+        // クォータ超過：以降の試行を無駄にしないためセッション内でスキップ
+        geminiTtsQuotaRef.current = true;
+        setAiResponseText(prev => prev); // 再レンダリングなしで GCP へ即切替
+        console.warn("Gemini TTS quota exceeded. Switching to GCP TTS for this session.");
+      } else {
+        console.warn("Gemini TTS failed:", e.message);
+      }
     }
     return false;
   };
