@@ -488,11 +488,19 @@ function WordGame() {
           })
         });
         const data = await res.json();
-        console.log("Gemini Response:", data);
         if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
         const candidate = data.candidates?.[0];
-        if (candidate?.finishReason === 'SAFETY') return null;
-        return candidate?.content?.parts?.[0]?.text || null;
+        // null になる理由を詳細ログに出力
+        if (!candidate?.content?.parts?.[0]?.text || candidate?.finishReason === 'SAFETY') {
+          console.warn("Gemini null reason:", {
+            finishReason: candidate?.finishReason,
+            blockReason: data.promptFeedback?.blockReason,
+            safetyRatings: candidate?.safetyRatings,
+            hasContent: !!candidate?.content?.parts?.[0]?.text,
+          });
+          return null;
+        }
+        return candidate.content.parts[0].text;
       };
 
       // 1回目の試行
