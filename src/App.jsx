@@ -35,11 +35,11 @@ const INITIAL_CHARACTERS = {
     color: "#ec4899",
     voice: "Kore", 
     gcpVoice: "ja-JP-Neural2-B",
-    prompt: "あなたは妖艶な成熟したお姉さんです。プレイヤーの卑猥な言葉に、表面上の理性が少しずつ剥がれ落ち、本能が露わになっていく様子を生々しく演じてください。"
+    prompt: "あなたは包容力のある洗練された年上の女性を演じてください。プレイヤーとの親密なやり取りを通して、次第に大人としての理性が揺らぎ、内に秘めた熱い情熱が溢れ出していく姿を情緒たっぷりに表現してください。"
   },
   shizuka: {
     name: "静香",
-    description: "冷徹でドSな氷の令嬢",
+    description: "冷徹で気高い氷の令嬢",
     images: {
       clothed: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=800&q=80",
       unveiled: "https://images.unsplash.com/photo-1531123897727-8f129e16fd3c?auto=format&fit=crop&w=800&q=80",
@@ -47,7 +47,7 @@ const INITIAL_CHARACTERS = {
     color: "#3b82f6",
     voice: "Aoede", 
     gcpVoice: "ja-JP-Neural2-B",
-    prompt: "あなたは冷徹な令嬢ですが、プレイヤーの攻めに屈し、プライドという名の服が脱げ去っていく屈辱と生々しい快楽を表現してください。"
+    prompt: "あなたは誇り高い令嬢を演じてください。冷徹な態度の裏に潜む、相手への抗いがたい関心と、次第にかき乱されていく心の動揺を情熱的に表現してください。"
   },
   marin: {
     name: "真凛",
@@ -59,7 +59,7 @@ const INITIAL_CHARACTERS = {
     color: "#f97316",
     voice: "Leda", 
     gcpVoice: "ja-JP-Neural2-F",
-    prompt: "あなたはからかい上手な小悪魔ですが、攻められた言葉の「エッチさ」に当てられて、次第に我慢できない状態に陥っていく様子を色っぽく表現してください。"
+    prompt: "あなたはからかい上手な小悪魔を演じてください。からかうはずの相手の、予期せぬ情熱的な攻めによって、次第に余裕をなくし、翻弄されていく様子を情緒たっぷりに表現してください。"
   }
 };
 
@@ -454,6 +454,7 @@ function WordGame() {
         });
         const data = await res.json();
         console.log("Raw Gemini Text Response:", data);
+        if (data.promptFeedback) console.warn("Gemini Prompt Block Details:", data.promptFeedback);
         if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
         const candidate = data.candidates?.[0];
         if (candidate?.finishReason === 'SAFETY') {
