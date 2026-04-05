@@ -112,6 +112,7 @@ function WordGame() {
   
   const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem('erotic_wordchain_apikey') || '');
   const [gcpApiKey, setGcpApiKey] = useState(() => localStorage.getItem('erotic_wordchain_gcp_apikey') || '');
+  const [ttsPriority, setTtsPriority] = useState(() => localStorage.getItem('erotic_wordchain_tts_priority') || 'gemini');
 
   useEffect(() => {
     localStorage.setItem('erotic_wordchain_apikey', geminiApiKey);
@@ -120,6 +121,10 @@ function WordGame() {
   useEffect(() => {
     localStorage.setItem('erotic_wordchain_gcp_apikey', gcpApiKey);
   }, [gcpApiKey]);
+
+  useEffect(() => {
+    localStorage.setItem('erotic_wordchain_tts_priority', ttsPriority);
+  }, [ttsPriority]);
 
   const [useTextInput, setUseTextInput] = useState(false);
   const [inputText, setInputText] = useState("");
@@ -290,7 +295,7 @@ function WordGame() {
     }
   };
 
-  // Web Speech APIフォールバック（Gemini TTS失敗時に使用）
+  // Web Speech API（最終手段）
   const speakWithWebSpeech = (text, nextKanaUpdate, isGameOverCall) => {
     const cleanText = text.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
     setAiResponseText(text);
@@ -309,19 +314,14 @@ function WordGame() {
       utter.onend = () => { setIsSpeaking(false); isBusyRef.current = false; if (isGameOverCall) setGameState('gameover'); };
       utter.onerror = () => { setIsSpeaking(false); isBusyRef.current = false; if (isGameOverCall) setGameState('gameover'); };
       window.speechSynthesis.speak(utter);
-    } else {
-      setIsSpeaking(false); isBusyRef.current = false;
-      if (isGameOverCall) setGameState('gameover');
+      return true;
     }
+    return false;
   };
 
-  // Google Cloud TTS フォールバック
+  // Google Cloud TTS
   const speakWithGCP = async (text, inst, nextKanaUpdate, isGameOverCall) => {
-    if (!gcpApiKey) {
-      speakWithWebSpeech(text, nextKanaUpdate, isGameOverCall);
-      return;
-    }
-
+    if (!gcpApiKey) return false;
     try {
       const cleanText = text.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
       const voiceName = charConfigs[stateRef.current.selectedCharKey].gcpVoice || "ja-JP-Neural2-B";
@@ -335,10 +335,8 @@ function WordGame() {
           audioConfig: { audioEncoding: "MP3", pitch: 0, speakingRate: 1 }
         })
       });
-
       const data = await res.json();
       if (data.error) throw new Error(data.error.message);
-      
       if (data.audioContent) {
         if (currentAudioRef.current) currentAudioRef.current.pause();
         const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
@@ -349,24 +347,18 @@ function WordGame() {
           if (isGameOverCall) setGameState('gameover');
         };
         audio.play();
-      } else {
-        throw new Error("No audio content from GCP");
+        return true;
       }
     } catch (e) {
-      console.warn("GCP TTS failed, falling back to Web Speech API:", e.message);
-      speakWithWebSpeech(text, nextKanaUpdate, isGameOverCall);
+      console.warn("GCP TTS failed:", e.message);
     }
+    return false;
   };
 
-  const speak = async (text, inst, nextKanaUpdate = null, isGameOverCall = false, speakArousal = stateRef.current.arousal) => {
-    setIsSpeaking(true); isBusyRef.current = true;
-
+  // Gemini TTS
+  const speakWithGemini = async (text, inst, nextKanaUpdate, isGameOverCall) => {
+    if (!geminiApiKey) return false;
     try {
-      if (!geminiApiKey) {
-        speakWithGCP(text, inst, nextKanaUpdate, isGameOverCall);
-        return;
-      }
-
       let cleanText = text.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
       const ttsPrompt = `「${inst || '自然に'}」という感情を込めて言ってください：「${cleanText}」`;
 
@@ -381,11 +373,9 @@ function WordGame() {
           }
         })
       });
-
       const data = await res.json();
       if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
       const pcm = data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-      
       if (pcm) {
         if (currentAudioRef.current) currentAudioRef.current.pause();
         const audio = new Audio(URL.createObjectURL(pcmToWav(pcm)));
@@ -396,13 +386,34 @@ function WordGame() {
           if (isGameOverCall) setGameState('gameover');
         };
         audio.play();
-      } else {
-        speakWithGCP(text, inst, nextKanaUpdate, isGameOverCall);
+        return true;
       }
-    } catch (e) { 
-      console.warn("Gemini TTS failed, falling back to GCP/WebSpeech API:", e.message);
-      speakWithGCP(text, inst, nextKanaUpdate, isGameOverCall);
+    } catch (e) {
+      console.warn("Gemini TTS failed:", e.message);
     }
+    return false;
+  };
+
+  const speak = async (text, inst, nextKanaUpdate = null, isGameOverCall = false) => {
+    setIsSpeaking(true); isBusyRef.current = true;
+    
+    // 優先順位に基づいたエンジンリストの作成
+    const engines = [];
+    if (ttsPriority === 'gemini') engines.push('gemini', 'gcp', 'web');
+    else if (ttsPriority === 'gcp') engines.push('gcp', 'gemini', 'web');
+    else engines.push('web', 'gemini', 'gcp');
+
+    for (const engine of engines) {
+      let success = false;
+      if (engine === 'gemini') success = await speakWithGemini(text, inst, nextKanaUpdate, isGameOverCall);
+      else if (engine === 'gcp') success = await speakWithGCP(text, inst, nextKanaUpdate, isGameOverCall);
+      else if (engine === 'web') success = speakWithWebSpeech(text, nextKanaUpdate, isGameOverCall);
+      
+      if (success) return;
+    }
+    
+    // 全て失敗した場合
+    setIsSpeaking(false); isBusyRef.current = false;
   };
 
 
@@ -613,12 +624,12 @@ function WordGame() {
           </div>
           
           <div className="bg-zinc-900 p-6 rounded-2xl border border-pink-900 mb-8 shadow-lg shadow-pink-900/20">
-            <label className="block text-sm font-bold mb-2 text-pink-400">Gemini API Key (必須)</label>
-            <p className="text-xs text-zinc-500 mb-3">Google AI Studioで取得したAPIキーを入力してください。ブラウザにのみ保存されます。</p>
+            <label className="block text-sm font-bold mb-2 text-pink-400">Gemini API Key (Google AI Studio)</label>
+            <p className="text-xs text-zinc-500 mb-3">会話とGemini音声に使用します。[Google AI Studio](https://aistudio.google.com/app/apikey)で取得してください。</p>
             <input type="password" value={geminiApiKey} onChange={(e) => setGeminiApiKey(e.target.value)} placeholder="AIzaSy..." className="w-full bg-black border border-zinc-700 p-3 rounded-xl text-sm font-mono focus:border-pink-500 focus:outline-none mb-4" />
             
-            <label className="block text-sm font-bold mb-2 text-blue-400">Google Cloud API Key (任意 / 高品質代替)</label>
-            <p className="text-xs text-zinc-500 mb-3">Cloud Text-to-Speechを有効化したAPIキーを入力すると、Geminiの制限時に高品質な音声（Journey/Neural2）を使用します。</p>
+            <label className="block text-sm font-bold mb-2 text-blue-400">Google Cloud API Key (Google Cloud Console)</label>
+            <p className="text-xs text-zinc-500 mb-3">高品質音声に使用します。[Google Cloud Console](https://console.cloud.google.com/)で取得してください。</p>
             <div className="flex gap-2">
               <input type="password" value={gcpApiKey} onChange={(e) => setGcpApiKey(e.target.value)} placeholder="AIzaSy..." className="flex-1 bg-black border border-zinc-700 p-3 rounded-xl text-sm font-mono focus:border-blue-500 focus:outline-none" />
               <button 
@@ -627,6 +638,26 @@ function WordGame() {
                 className="px-4 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
               >テスト</button>
             </div>
+          </div>
+
+          <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 mb-8">
+            <label className="block text-sm font-bold mb-4 uppercase tracking-widest text-xs text-zinc-500">優先する音声合成エンジン</label>
+            <div className="flex gap-2">
+              {[
+                { id: 'gemini', label: 'Gemini' },
+                { id: 'gcp', label: 'Google Cloud' },
+                { id: 'web', label: 'ブラウザ内蔵' }
+              ].map(engine => (
+                <button 
+                  key={engine.id} 
+                  onClick={() => setTtsPriority(engine.id)} 
+                  className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all border ${ttsPriority === engine.id ? 'bg-zinc-100 text-black border-zinc-100' : 'bg-black text-zinc-500 border-zinc-800'}`}
+                >
+                  {engine.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-zinc-500 mt-3">※選択したエンジンが利用不可・エラーの場合は、自動で他のエンジンへフォールバックします。</p>
           </div>
 
           <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 mb-8">
