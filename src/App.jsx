@@ -34,6 +34,7 @@ const INITIAL_CHARACTERS = {
     },
     color: "#ec4899",
     voice: "Kore", 
+    gcpVoice: "ja-JP-Journey-F",
     prompt: "あなたは妖艶な成熟したお姉さんです。プレイヤーの卑猥な言葉に、表面上の理性が少しずつ剥がれ落ち、本能が露わになっていく様子を生々しく演じてください。"
   },
   shizuka: {
@@ -45,6 +46,7 @@ const INITIAL_CHARACTERS = {
     },
     color: "#3b82f6",
     voice: "Aoede", 
+    gcpVoice: "ja-JP-Neural2-B",
     prompt: "あなたは冷徹な令嬢ですが、プレイヤーの攻めに屈し、プライドという名の服が脱げ去っていく屈辱と生々しい快楽を表現してください。"
   },
   marin: {
@@ -109,9 +111,15 @@ function WordGame() {
   const [history, setHistory] = useState([]);
   
   const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem('erotic_wordchain_apikey') || '');
+  const [gcpApiKey, setGcpApiKey] = useState(() => localStorage.getItem('erotic_wordchain_gcp_apikey') || '');
+
   useEffect(() => {
     localStorage.setItem('erotic_wordchain_apikey', geminiApiKey);
   }, [geminiApiKey]);
+
+  useEffect(() => {
+    localStorage.setItem('erotic_wordchain_gcp_apikey', gcpApiKey);
+  }, [gcpApiKey]);
 
   const [useTextInput, setUseTextInput] = useState(false);
   const [inputText, setInputText] = useState("");
@@ -307,12 +315,55 @@ function WordGame() {
     }
   };
 
+  // Google Cloud TTS フォールバック
+  const speakWithGCP = async (text, inst, nextKanaUpdate, isGameOverCall) => {
+    if (!gcpApiKey) {
+      speakWithWebSpeech(text, nextKanaUpdate, isGameOverCall);
+      return;
+    }
+
+    try {
+      const cleanText = text.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
+      const voiceName = charConfigs[stateRef.current.selectedCharKey].gcpVoice || "ja-JP-Neural2-B";
+      
+      const res = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${gcpApiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          input: { text: cleanText },
+          voice: { languageCode: "ja-JP", name: voiceName },
+          audioConfig: { audioEncoding: "MP3", pitch: 0, speakingRate: 1 }
+        })
+      });
+
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      
+      if (data.audioContent) {
+        if (currentAudioRef.current) currentAudioRef.current.pause();
+        const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
+        currentAudioRef.current = audio;
+        audio.onplay = () => { setAiResponseText(text); if (nextKanaUpdate) setDisplayKana(nextKanaUpdate); };
+        audio.onended = () => {
+          setIsSpeaking(false); isBusyRef.current = false;
+          if (isGameOverCall) setGameState('gameover');
+        };
+        audio.play();
+      } else {
+        throw new Error("No audio content from GCP");
+      }
+    } catch (e) {
+      console.warn("GCP TTS failed, falling back to Web Speech API:", e.message);
+      speakWithWebSpeech(text, nextKanaUpdate, isGameOverCall);
+    }
+  };
+
   const speak = async (text, inst, nextKanaUpdate = null, isGameOverCall = false, speakArousal = stateRef.current.arousal) => {
     setIsSpeaking(true); isBusyRef.current = true;
 
     try {
       if (!geminiApiKey) {
-        speakWithWebSpeech(text, nextKanaUpdate, isGameOverCall);
+        speakWithGCP(text, inst, nextKanaUpdate, isGameOverCall);
         return;
       }
 
@@ -346,11 +397,11 @@ function WordGame() {
         };
         audio.play();
       } else {
-        speakWithWebSpeech(text, nextKanaUpdate, isGameOverCall);
+        speakWithGCP(text, inst, nextKanaUpdate, isGameOverCall);
       }
     } catch (e) { 
-      console.warn("Gemini TTS failed, falling back to Web Speech API:", e.message);
-      speakWithWebSpeech(text, nextKanaUpdate, isGameOverCall);
+      console.warn("Gemini TTS failed, falling back to GCP/WebSpeech API:", e.message);
+      speakWithGCP(text, inst, nextKanaUpdate, isGameOverCall);
     }
   };
 
@@ -564,7 +615,18 @@ function WordGame() {
           <div className="bg-zinc-900 p-6 rounded-2xl border border-pink-900 mb-8 shadow-lg shadow-pink-900/20">
             <label className="block text-sm font-bold mb-2 text-pink-400">Gemini API Key (必須)</label>
             <p className="text-xs text-zinc-500 mb-3">Google AI Studioで取得したAPIキーを入力してください。ブラウザにのみ保存されます。</p>
-            <input type="password" value={geminiApiKey} onChange={(e) => setGeminiApiKey(e.target.value)} placeholder="AIzaSy..." className="w-full bg-black border border-zinc-700 p-3 rounded-xl text-sm font-mono focus:border-pink-500 focus:outline-none" />
+            <input type="password" value={geminiApiKey} onChange={(e) => setGeminiApiKey(e.target.value)} placeholder="AIzaSy..." className="w-full bg-black border border-zinc-700 p-3 rounded-xl text-sm font-mono focus:border-pink-500 focus:outline-none mb-4" />
+            
+            <label className="block text-sm font-bold mb-2 text-blue-400">Google Cloud API Key (任意 / 高品質代替)</label>
+            <p className="text-xs text-zinc-500 mb-3">Cloud Text-to-Speechを有効化したAPIキーを入力すると、Geminiの制限時に高品質な音声（Journey/Neural2）を使用します。</p>
+            <div className="flex gap-2">
+              <input type="password" value={gcpApiKey} onChange={(e) => setGcpApiKey(e.target.value)} placeholder="AIzaSy..." className="flex-1 bg-black border border-zinc-700 p-3 rounded-xl text-sm font-mono focus:border-blue-500 focus:outline-none" />
+              <button 
+                onClick={() => speak("こんにちは、正常に動作しているわ。", "優しく")} 
+                disabled={!gcpApiKey || isSpeaking}
+                className="px-4 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
+              >テスト</button>
+            </div>
           </div>
 
           <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 mb-8">
