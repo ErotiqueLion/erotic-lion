@@ -311,7 +311,8 @@ function WordGame() {
     if (!geminiApiKey) return false;
     try {
       let cleanText = text.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
-      const ttsPrompt = `「${inst || '自然に'}」という感情を込めて言ってください。現在の欲情度は${stateRef.current.arousal}%です。${stateRef.current.arousal > 70 ? 'かなり興奮して声が上ずっている様子を演じてください。' : ''}：${cleanText}`;
+      // TTS プロンプトは感情指示とセリフのみ（欲情度・過激表現を含めると空レスポンスになる）
+      const ttsPrompt = `次のセリフを「${inst || '自然に'}」という感情で読んでください：${cleanText}`;
 
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
@@ -333,7 +334,15 @@ function WordGame() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-      const pcm = data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      const candidate = data.candidates?.[0];
+      const pcm = candidate?.content?.parts?.[0]?.inlineData?.data;
+      if (!pcm) {
+        console.warn("Gemini TTS no audio:", {
+          finishReason: candidate?.finishReason,
+          blockReason: data.promptFeedback?.blockReason,
+          hasCandidate: !!candidate,
+        });
+      }
       if (pcm) {
         if (currentAudioRef.current) currentAudioRef.current.pause();
         const audio = new Audio(URL.createObjectURL(pcmToWav(pcm)));
