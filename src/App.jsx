@@ -280,10 +280,35 @@ function WordGame() {
     }
   };
 
+  // Web Speech APIフォールバック（Gemini TTS失敗時に使用）
+  const speakWithWebSpeech = (text, nextKanaUpdate, isGameOverCall) => {
+    const cleanText = text.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
+    setAiResponseText(text);
+    if (nextKanaUpdate) setDisplayKana(nextKanaUpdate);
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(cleanText);
+      utter.lang = 'ja-JP';
+      utter.rate = 0.9;
+      utter.pitch = 1.1;
+      const voices = window.speechSynthesis.getVoices();
+      const jaVoice = voices.find(v => v.lang.startsWith('ja') && v.localService) 
+                   || voices.find(v => v.lang.startsWith('ja'));
+      if (jaVoice) utter.voice = jaVoice;
+      utter.onend = () => { setIsSpeaking(false); isBusyRef.current = false; if (isGameOverCall) setGameState('gameover'); };
+      utter.onerror = () => { setIsSpeaking(false); isBusyRef.current = false; if (isGameOverCall) setGameState('gameover'); };
+      window.speechSynthesis.speak(utter);
+    } else {
+      setIsSpeaking(false); isBusyRef.current = false;
+      if (isGameOverCall) setGameState('gameover');
+    }
+  };
+
   const speak = async (text, inst, nextKanaUpdate = null, isGameOverCall = false, speakArousal = stateRef.current.arousal) => {
     setIsSpeaking(true); isBusyRef.current = true;
     try {
-      if (!geminiApiKey) throw new Error("APIキーが設定されていません");
+      if (!geminiApiKey) throw new Error("no_key");
 
       let cleanText = text.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
       const ttsPrompt = `「${inst || '自然に'}」という感情を込めて言ってください：「${cleanText}」`;
@@ -315,15 +340,14 @@ function WordGame() {
         };
         audio.play();
       } else {
-        setAiResponseText(text); setIsSpeaking(false); isBusyRef.current = false;
-        if (isGameOverCall) setGameState('gameover');
+        speakWithWebSpeech(text, nextKanaUpdate, isGameOverCall);
       }
     } catch (e) { 
-      console.error(e);
-      setAiResponseText(text); setIsSpeaking(false); isBusyRef.current = false;
-      if (isGameOverCall) setGameState('gameover');
+      console.warn("Gemini TTS failed, falling back to Web Speech API:", e.message);
+      speakWithWebSpeech(text, nextKanaUpdate, isGameOverCall);
     }
   };
+
 
   const handlePlayerInput = async (input) => {
     if (!input || isBusyRef.current) return;
