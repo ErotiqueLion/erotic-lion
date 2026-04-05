@@ -280,6 +280,9 @@ function WordGame() {
   const handleResumeGame = async () => {
     const proceed = () => {
       if (savedData) {
+        // 前回セッションの表示テキスト・ロック状態をリセット
+        setAiResponseText(''); setPlayerInputText('');
+        setGameResult(null); setIsThinking(false); setIsSpeaking(false); isBusyRef.current = false;
         setSelectedCharKey(savedData.selectedCharKey);
         setArousal(savedData.arousal);
         setDisplayKana(savedData.displayKana);
@@ -819,7 +822,14 @@ function WordGame() {
       </div>
 
       <div className="absolute top-0 left-0 right-0 z-50 p-4 flex justify-between items-start">
-         <button onClick={() => { if(currentAudioRef.current) currentAudioRef.current.pause(); setGameState('intro'); }} className="p-2 bg-black/20 rounded-full backdrop-blur-sm border border-white/5"><Home size={18} /></button>
+         <button onClick={() => {
+           if(currentAudioRef.current) currentAudioRef.current.pause();
+           window.speechSynthesis?.cancel();
+           // 画面表示・ロック状態をクリアしてホームへ
+           setAiResponseText(''); setPlayerInputText('');
+           setIsThinking(false); setIsSpeaking(false); isBusyRef.current = false;
+           setGameState('intro');
+         }} className="p-2 bg-black/20 rounded-full backdrop-blur-sm border border-white/5"><Home size={18} /></button>
          <div className="flex flex-col items-center">
             <div className="flex items-center gap-1.5 bg-black/40 px-4 py-1.5 rounded-full border border-white/5">
               <Heart 
