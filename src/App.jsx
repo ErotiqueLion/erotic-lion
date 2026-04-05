@@ -75,9 +75,11 @@ The REQUIRED starting character is "${currentKana}".
 - TRIPLE CHECK: Read the player's word, find its last character, and make sure your "word" starts with it.
 - Do NOT reuse any word from history: [${history.join(', ')}]
 - If your word ends with "ん", that is forbidden. Choose a different word.
-- If the player's word ends with "ん" or was already used, set "valid": true but set "player_lost": true.
-- If the player's word starts with the wrong character, set "valid": false.
-- If you can think of a valid response, strictly set "valid": true.
+- VALIDATION (check in order, NO exceptions, NO flexibility):
+  1. Does player's word START with "${currentKana}"? If NO → "valid": false, "player_lost": true. STOP.
+  2. Does player's word end with "ん"? If YES → "valid": false, "player_lost": true. STOP.
+  3. Is player's word already in history [${history.join(', ')}]? If YES → "valid": false, "player_lost": true. STOP.
+  4. All checks passed → "valid": true, "player_lost": false. Then choose YOUR response word.
 
 Respond ONLY in the following JSON format (no markdown, no extra text):
 {
@@ -377,7 +379,14 @@ function WordGame() {
           generationConfig: {
             responseModalities: ["AUDIO"],
             speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: charConfigs[stateRef.current.selectedCharKey].voice } } }
-          }
+          },
+          // テキスト生成と同様に安全フィルターを無効化（官能的セリフがブロックされ声が変わるのを防ぐ）
+          safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT",       threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH",       threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+          ]
         })
       });
       const data = await res.json();
@@ -436,6 +445,28 @@ function WordGame() {
         setIsThinking(false);
         isBusyRef.current = false;
         return;
+      }
+
+      // カタカナ→ひらがな変換
+      const toHiragana = str => str.replace(/[\u30A1-\u30F6]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+      // ひらがな・カタカナのみで構成されているか（漢字混じりの場合はクライアント検証をスキップ）
+      const isKanaOnly = str => /^[\u3041-\u3096\u30A1-\u30F6ー]+$/.test(str);
+
+      const normalizedInput = toHiragana(input.trim());
+      if (isKanaOnly(normalizedInput)) {
+        // 開始文字チェック
+        const smallToLargeMap = { 'ぁ':'あ','ぃ':'い','ぅ':'う','ぇ':'え','ぉ':'お','ゃ':'や','ゅ':'ゆ','ょ':'よ','っ':'つ','ゎ':'わ' };
+        const firstChar = smallToLargeMap[normalizedInput.charAt(0)] || normalizedInput.charAt(0);
+        if (firstChar !== s.displayKana) {
+          speak(`「${s.displayKana}」から始まる言葉を言ってちょうだい。`, "呆れたように");
+          setIsThinking(false); isBusyRef.current = false; return;
+        }
+        // 「ん」終わりチェック
+        const lastChar = normalizedInput.slice(-1);
+        if (lastChar === 'ん') {
+          speak("「ん」で終わったら負けよ。", "勝ち誇って", null, true);
+          setGameResult('lose'); clearSaveData(); setIsThinking(false); isBusyRef.current = false; return;
+        }
       }
 
       const systemText = getSystemPrompt(s.charConfigs[s.selectedCharKey], s.arousal, s.displayKana, s.history);
@@ -617,7 +648,7 @@ function WordGame() {
           </div>
           <div className="bg-zinc-900 p-6 rounded-2xl border border-pink-900 mb-8 shadow-lg shadow-pink-900/20">
             <label className="block text-sm font-bold mb-2 text-pink-400">Cloud Generative Language API Key (Gemini)</label>
-            <p className="text-xs text-zinc-500 mb-3">AIとの会話（テキスト生成）と Gemini 音声に使用します。[Google AI Studio](https://aistudio.google.com/app/apikey) 等で取得してください。</p>
+            <p className="text-xs text-zinc-500 mb-3">AIとの会話（テキスト生成）と Gemini 音声に使用します。Google Cloud Console で「Cloud Generative Language API」を有効化したキーを入力してください。</p>
             <div className="flex gap-2">
               <input type="password" value={geminiApiKey} onChange={(e) => setGeminiApiKey(e.target.value)} placeholder="AIzaSy..." className="flex-1 bg-black border border-zinc-700 p-3 rounded-xl text-sm font-mono focus:border-pink-500 focus:outline-none" />
               <button 

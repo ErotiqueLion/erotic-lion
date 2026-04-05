@@ -179,7 +179,7 @@
     const buf = new ArrayBuffer(44 + bytes.length);
     const v = new DataView(buf);
     const ws = (off, s) => { for (let i = 0; i < s.length; i++) v.setUint8(off+i, s.charCodeAt(i)); };
-    ws(0,'RIFF'); v.setUint32(4, 32+bytes.length, true); ws(8,'WAVE');
+    ws(0,'RIFF'); v.setUint32(4, 36+bytes.length, true); ws(8,'WAVE');
     ws(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true);
     v.setUint16(22,1,true); v.setUint32(24,24000,true); v.setUint32(28,48000,true);
     v.setUint16(32,2,true); v.setUint16(34,16,true);
