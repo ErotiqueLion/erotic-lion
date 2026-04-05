@@ -261,7 +261,7 @@ function WordGame() {
         setDisplayKana(savedData.displayKana);
         setHistory(savedData.history || []);
         setGameState('playing');
-        speak(`おかえりなさい。続きは「${savedData.displayKana}」からよ。`, "妖艶に");
+        speak(`おかえりなさい。続きは「${savedData.displayKana}」からよ。`, "妖艶に", null, false, stateRef.current.arousal, false);
       }
     };
 
@@ -307,10 +307,16 @@ function WordGame() {
     }
   };
 
-  const speak = async (text, inst, nextKanaUpdate = null, isGameOverCall = false, speakArousal = stateRef.current.arousal) => {
+  const speak = async (text, inst, nextKanaUpdate = null, isGameOverCall = false, speakArousal = stateRef.current.arousal, useGeminiTTS = true) => {
     setIsSpeaking(true); isBusyRef.current = true;
+
+    // useGeminiTTS=false の場合はレートを節約するため最初からWeb Speechを使う
+    if (!useGeminiTTS || !geminiApiKey) {
+      speakWithWebSpeech(text, nextKanaUpdate, isGameOverCall);
+      return;
+    }
+
     try {
-      if (!geminiApiKey) throw new Error("no_key");
 
       let cleanText = text.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
       const ttsPrompt = `「${inst || '自然に'}」という感情を込めて言ってください：「${cleanText}」`;
@@ -362,7 +368,7 @@ function WordGame() {
 
     try {
       if (!geminiApiKey) {
-        speak("APIキーが設定されてないわ。設定画面から入力してちょうだい。", "呆れたように");
+        speak("APIキーが設定されてないわ。設定画面から入力してちょうだい。", "呆れたように", null, false, stateRef.current.arousal, false);
         setIsThinking(false);
         isBusyRef.current = false;
         return;
@@ -646,7 +652,7 @@ function WordGame() {
       {(gameState === 'ready' || gameState === 'gameover') && (
         <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
           <h2 className="text-4xl font-black mb-8">{gameState === 'gameover' ? (gameResult === 'win' ? 'VICTORY!!' : 'GAME OVER') : 'READY?'}</h2>
-          <button onClick={() => { setGameState('playing'); setArousal(0); setHistory([]); setDisplayKana(startKanaSetting); saveGameProgress(0, startKanaSetting, [], selectedCharKey); speak(`始めましょう。最初は「${startKanaSetting}」からよ。`, "妖艶に"); }} className="px-12 py-4 bg-pink-600 rounded-full font-bold text-lg shadow-2xl hover:scale-105 transition-transform">
+          <button onClick={() => { setGameState('playing'); setArousal(0); setHistory([]); setDisplayKana(startKanaSetting); saveGameProgress(0, startKanaSetting, [], selectedCharKey); speak(`始めましょう。最初は「${startKanaSetting}」からよ。`, "妖艶に", null, false, 0, false); }} className="px-12 py-4 bg-pink-600 rounded-full font-bold text-lg shadow-2xl hover:scale-105 transition-transform">
             {gameState === 'gameover' ? 'もう一度' : '対話を開始'}
           </button>
         </div>
