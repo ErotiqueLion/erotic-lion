@@ -22,7 +22,7 @@ try {
 // --- Constants ---
 const DEFAULT_START_KANA = "し";
 const MAX_AROUSAL = 100;
-const SECRET_PASSCODE = "0721";
+const SECRET_PASSCODE = "1060";
 
 const INITIAL_CHARACTERS = {
   reika: {
@@ -343,8 +343,8 @@ function WordGame() {
         return;
       }
 
-      // Gemini 2.5の空応答(過剰な安全フィルター)を避けるため、ロールプレイに強いgemini-1.5-proを使用する
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${geminiApiKey}`, {
+      // 無料枠APIでも確実に対応している gemini-1.5-flash を利用する
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
