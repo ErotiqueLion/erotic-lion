@@ -438,13 +438,6 @@ function WordGame() {
         return;
       }
 
-      // プレイヤーの単語から次の開始文字(AI用)を特定
-      let pReading = input.trim();
-      while (pReading.endsWith('ー') || pReading.endsWith('っ')) pReading = pReading.slice(0, -1);
-      const pLast = pReading.slice(-1);
-      const smallToLarge = { 'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お', 'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'っ': 'つ', 'ゎ': 'わ' };
-      const aiStartKana = smallToLarge[pLast] || pLast;
-
       const systemText = getSystemPrompt(s.charConfigs[s.selectedCharKey], s.arousal, s.displayKana, s.history);
 
       const callGemini = async (userText, sysText = systemText) => {
@@ -472,12 +465,17 @@ function WordGame() {
       };
 
       // 1回目の試行
-      let rawText = await callGemini(`プレイヤーは「${input}」と言いました（開始文字は「${s.displayKana}」）。あなたは「${aiStartKana}」から始まる単語で答えてください。`);
+      let rawText = await callGemini(`プレイヤーは「${input}」と言いました（今回の開始文字は「${s.displayKana}」）。プレイヤーの単語が適切か判定し、適切であればその「読みの最後の文字」から始まる言葉で答えてください。`);
 
       if (!rawText) {
         console.log("Retrying with safe system prompt...");
-        const safeSys = `あなたは優秀なしりとりAIです。必ず「${aiStartKana}」から始まる単語を答えてください。プレイヤーの単語「${input}」を繰り返したり、「ん」で終わる単語を言うのは厳禁です。必ず指定のJSON形式のみを返してください。`;
-        rawText = await callGemini(`次は「${aiStartKana}」から始まる言葉です。プレイヤーは「${input}」と言いました。あなたは「${aiStartKana}」から始まる単語を使ってJSONで応答してください。`, safeSys);
+        const safeSys = `あなたは優秀なしりとりAIです。
+【ルール】
+1. プレイヤーは「${s.displayKana}」から始まる言葉「${input}」を言いました。
+2. その言葉の「読み」を確認し、最後の文字から始まる言葉を返してください。
+3. 既出単語や「ん」で終わる単語は禁止です。
+4. 必ず指定のJSON形式（valid, feedback, word, word_reading, next_kana, arousal_inc, player_lost, sister_lost, tts_instruction）のみを返してください。`;
+        rawText = await callGemini(`プレイヤーは「${input}」と言いました。あなたはJSONで応答してください。`, safeSys);
       }
 
       if (!rawText) throw new Error("AIから応答が得られませんでした。別の言い方で試してみてください。");
@@ -492,12 +490,8 @@ function WordGame() {
       const result = JSON.parse(jsonText);
       setIsThinking(false);
 
-      if (!result.valid) { speak(result.feedback || "ルール違反よ。", "優しく"); return; }
-
-      let reading = (result.word_reading || "あ").trim();
-      while (reading.endsWith('ー')) reading = reading.slice(0, -1);
-      const last = reading.slice(-1);
-      const nextK = smallToLarge[last] || last;
+      const smallToLarge = { 'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お', 'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'っ': 'つ', 'ゎ': 'わ' };
+      const nextK = result.next_kana ? (smallToLarge[result.next_kana.slice(-1)] || result.next_kana.slice(-1)) : "あ";
       
       const baseInc = result.arousal_inc || 15;
       const finalInc = baseInc * arousalMultiplier;
@@ -512,13 +506,7 @@ function WordGame() {
         clearSaveData(); speak(result.feedback, "絶頂", null, true);
       } else {
         saveGameProgress(nextA, nextK, newHistory, s.selectedCharKey);
-        // AIの回答が正しい文字で始まっているか簡易チェック
-        const aiRead = (result.word_reading || '').trim().normalize('NFKC');
-        const aiStartsCorrectly = aiRead.startsWith(aiStartKana);
-        const displayMsg = aiStartsCorrectly ? ` ……「${result.word}」よ。` : ` ……（ルールミス）次は「${aiStartKana}」からよ。`;
-        const actualNextK = aiStartsCorrectly ? nextK : aiStartKana;
-        
-        speak(`${result.feedback}${displayMsg}`, result.tts_instruction, actualNextK, false);
+        speak(`${result.feedback} ……「${result.word}」よ。`, result.tts_instruction, nextK, false);
       }
     } catch (e) {
       console.error(e);
