@@ -65,21 +65,23 @@ const getSystemPrompt = (char, arousal, currentKana, history) => {
 Current excitement level: ${arousal}%.
 As excitement rises, speak more breathlessly and passionately in Japanese.
 
-[Shiritori Game Rules]
-1. The player must say a noun starting with "${currentKana}". Your reply word must also start with "${currentKana}".
-2. Do not reuse words already in the history.
-3. If the word ends with "ん", set player_lost to true. You must never end your own word with "ん".
-4. If the player's word is suggestive/exciting, set arousal_inc to a value between 15-30. If it's boring, use a negative value.
+[Shiritori Game Rules - CRITICAL]
+The REQUIRED starting character is "${currentKana}".
+- The player's word starts with "${currentKana}". You must respond with a word that ALSO starts with "${currentKana}".
+- TRIPLE CHECK: Read your "word" field carefully. Its first character in hiragana MUST be "${currentKana}".
+- If you cannot think of a valid word starting with "${currentKana}", use a simple common noun that starts with "${currentKana}".
+- Do NOT reuse any word from history: [${history.join(', ')}]
+- If your word ends with "ん", that is forbidden. Choose a different word.
+- set player_lost=true only if the player's word ends with "ん" or the player used a word from history.
+- If the player's word is suggestive/exciting, set arousal_inc between 15 and 30. If boring, use a small negative value.
 
-History: [${history.join(', ')}]
-
-Respond ONLY in the following JSON format:
+Respond ONLY in the following JSON format (no markdown, no extra text):
 {
-  "thought_process": "reasoning about which word starting with ${currentKana} to choose, avoiding history",
-  "feedback": "your in-character Japanese response (passionate, breathless)",
-  "word": "your shiritori word (noun, MUST start with ${currentKana})",
-  "word_reading": "reading in hiragana",
-  "next_kana": "next starting character",
+  "thought_process": "I need a word starting with ${currentKana}. Checking history... Chosen word: ...",
+  "feedback": "your passionate Japanese in-character response (2-3 sentences)",
+  "word": "your shiritori word in kanji/kana (MUST start with ${currentKana})",
+  "word_reading": "hiragana reading of your word (first char MUST be ${currentKana})",
+  "next_kana": "last kana of your word (handles small kana correctly)",
   "arousal_inc": 15,
   "valid": true,
   "player_lost": false,
@@ -414,12 +416,30 @@ function WordGame() {
       const newHistory = [...s.history, input, result.word];
       setHistory(newHistory);
 
+      // --- AIの単語バリデーション ---
+      // AIが返した単語のよみが正しいkanaで始まるか検証する
+      const aiReading = (result.word_reading || '').trim();
+      const aiReadingNorm = aiReading.normalize('NFKC'); // 全角→半角等の正規化
+      const expectedKana = s.displayKana;
+      const aiStartsCorrectly = aiReadingNorm.startsWith(expectedKana);
+      
+      // AIが間違えた場合、単語は「???」で表示しnext_kanaもリセットしない
+      let displayWord = result.word;
+      let finalNextK = nextK;
+      if (!aiStartsCorrectly && aiReading) {
+        console.warn(`AI shiritori error: word "${result.word}" (${aiReading}) should start with "${expectedKana}"`);
+        // そのターンのAI単語はスキップしてdisplayKanaをそのままにする
+        finalNextK = expectedKana;
+        displayWord = '（ミス）';
+      }
+
       if (result.player_lost || result.sister_lost || nextA >= MAX_AROUSAL) {
         setGameResult(nextA >= MAX_AROUSAL ? 'win' : 'lose');
         clearSaveData(); speak(result.feedback, "絶頂", null, true, nextA);
       } else {
-        saveGameProgress(nextA, nextK, newHistory, s.selectedCharKey);
-        speak(`${result.feedback}……「${result.word}」よ。`, result.tts_instruction, nextK, false, nextA);
+        saveGameProgress(nextA, finalNextK, newHistory, s.selectedCharKey);
+        const wordDisplay = aiStartsCorrectly ? `……「${result.word}」よ。` : '……うまく言えなかったわ。もう一度「${expectedKana}」からよ。';
+        speak(`${result.feedback}${wordDisplay}`, result.tts_instruction, finalNextK, false, nextA);
       }
     } catch (e) {
       console.error(e);
