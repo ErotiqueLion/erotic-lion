@@ -4,7 +4,7 @@ import { Mic, Activity, Settings, Heart, Home, Upload, HelpCircle, Lock, Unlock,
 // --- Firebase Setup ---
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
-import { getFirestore, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
 
 let app, auth, db, appId;
 try {
@@ -103,8 +103,6 @@ Suggest the character's heat and loss of control.`;
 
 function WordGame() {
   const [user, setUser] = useState(null);
-  const [hasSaveData, setHasSaveData] = useState(false);
-  const [savedData, setSavedData] = useState(null);
 
   const [gameState, setGameState] = useState('locked');
   const [passcode, setPasscode] = useState('');
@@ -176,34 +174,6 @@ function WordGame() {
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (!user || !db) return;
-    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'saveData', 'current');
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        setHasSaveData(true);
-        setSavedData(docSnap.data());
-      } else {
-        setHasSaveData(false);
-        setSavedData(null);
-      }
-    });
-    return () => unsubscribe();
-  }, [user]);
-
-  const saveGameProgress = async (curA, curK, curH, curChar) => {
-    if (!user || !db) return;
-    try {
-      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'saveData', 'current'), {
-        arousal: curA, displayKana: curK, history: curH, selectedCharKey: curChar, timestamp: Date.now()
-      });
-    } catch (e) {}
-  };
-
-  const clearSaveData = async () => {
-    if (!user || !db) return;
-    try { await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'saveData', 'current')); } catch(e) {}
-  };
 
   const initRecognition = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -274,38 +244,6 @@ function WordGame() {
     } catch (err) {
       setUseTextInput(true);
       setGameState('character_select');
-    }
-  };
-
-  const handleResumeGame = async () => {
-    const proceed = () => {
-      if (savedData) {
-        // 前回セッションの表示テキスト・ロック状態をリセット
-        setAiResponseText(''); setPlayerInputText('');
-        setGameResult(null); setIsThinking(false); setIsSpeaking(false); isBusyRef.current = false;
-        setSelectedCharKey(savedData.selectedCharKey);
-        setArousal(savedData.arousal);
-        setDisplayKana(savedData.displayKana);
-        setHistory(savedData.history || []);
-        setGameState('playing');
-        speak(`おかえりなさい。続きは「${savedData.displayKana}」からよ。`, "妖艶に");
-      }
-    };
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setUseTextInput(true);
-      proceed();
-      return;
-    }
-
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      initRecognition();
-      proceed();
-    } catch (err) {
-      setUseTextInput(true);
-      proceed();
     }
   };
 
@@ -469,7 +407,7 @@ function WordGame() {
         const lastChar = normalizedInput.slice(-1);
         if (lastChar === 'ん') {
           speak("「ん」で終わったら負けよ。", "勝ち誇って", null, true);
-          setGameResult('lose'); clearSaveData(); setIsThinking(false); isBusyRef.current = false; return;
+          setGameResult('lose'); setIsThinking(false); isBusyRef.current = false; return;
         }
       }
 
@@ -551,9 +489,8 @@ function WordGame() {
 
       if (result.player_lost || result.sister_lost || nextA >= MAX_AROUSAL) {
         setGameResult(nextA >= MAX_AROUSAL ? 'win' : 'lose');
-        clearSaveData(); speak(result.feedback, "絶頂", null, true);
+        speak(result.feedback, "絶頂", null, true);
       } else {
-        saveGameProgress(nextA, nextK, newHistory, s.selectedCharKey);
         speak(`${result.feedback} ……「${result.word}」よ。`, result.tts_instruction, nextK, false);
       }
     } catch (e) {
@@ -617,10 +554,6 @@ function WordGame() {
           </button>
         </div>
         <div className="flex flex-col gap-4 w-full max-w-xs">
-          {hasSaveData && <button onClick={() => {
-            if (!geminiApiKey) { setGameState('settings'); return; }
-            handleResumeGame();
-          }} className="py-4 bg-white/10 border border-white/20 rounded-full text-white font-bold hover:bg-white/20 transition-all">続きから</button>}
           <button onClick={() => {
             if (!geminiApiKey) { setGameState('settings'); return; }
             handleStartNewGame();
@@ -849,8 +782,7 @@ function WordGame() {
           <button onClick={() => { 
             setAiResponseText(''); setPlayerInputText('');
             setGameState('playing'); setArousal(0); setHistory([]); setDisplayKana(startKanaSetting); 
-            saveGameProgress(0, startKanaSetting, [], selectedCharKey); 
-            speak(`始めましょう。最初は「${startKanaSetting}」からよ。`, "妖艶に"); 
+            speak(`始めましょう。最初は「${startKanaSetting}」からよ。`, "妖艶に");
           }} className="px-12 py-4 bg-pink-600 rounded-full font-bold text-lg shadow-2xl hover:scale-105 transition-transform">
             {gameState === 'gameover' ? 'もう一度' : '対話を開始'}
           </button>
@@ -889,6 +821,7 @@ function WordGame() {
                   className="flex-1 bg-zinc-900/90 border border-zinc-700 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:border-pink-500 w-full"
                   onKeyDown={(e) => {
                     if(e.key === 'Enter' && inputText.trim() && !isSpeaking && !isThinking) {
+                       setAiResponseText(''); // マイク入力と同様に前回のAI返答をクリア
                        handlePlayerInput(inputText.trim());
                        setInputText("");
                     }
