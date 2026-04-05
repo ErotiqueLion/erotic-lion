@@ -236,7 +236,7 @@ function WordGame() {
     const buffer = new ArrayBuffer(44 + bytes.length);
     const view = new DataView(buffer);
     const writeStr = (off, s) => { for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)); };
-    writeStr(0, 'RIFF'); view.setUint32(4, 32 + bytes.length, true); writeStr(8, 'WAVE');
+    writeStr(0, 'RIFF'); view.setUint32(4, 36 + bytes.length, true); writeStr(8, 'WAVE');
     writeStr(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
     view.setUint16(22, 1, true); view.setUint32(24, 24000, true); view.setUint32(28, 48000, true);
     view.setUint16(32, 2, true); view.setUint16(34, 16, true); writeStr(36, 'data');
@@ -436,11 +436,11 @@ function WordGame() {
 
       const systemText = getSystemPrompt(s.charConfigs[s.selectedCharKey], s.arousal, s.displayKana, s.history);
       const callGemini = async (userText) => {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemText }] },
+            system_instruction: { parts: [{ text: systemText }] },
             contents: [{ parts: [{ text: userText }] }],
             generationConfig: { responseMimeType: "application/json" },
             safetySettings: [
@@ -452,8 +452,14 @@ function WordGame() {
           })
         });
         const data = await res.json();
+        console.log("Raw Gemini Text Response:", data);
         if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-        return data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+        const candidate = data.candidates?.[0];
+        if (candidate?.finishReason === 'SAFETY') {
+          console.warn("Gemini Safety Filter blocked response:", candidate.safetyRatings);
+          return null;
+        }
+        return candidate?.content?.parts?.[0]?.text || null;
       };
 
       // 1回目の試行
@@ -464,9 +470,15 @@ function WordGame() {
         rawText = await callGemini(`プレイヤーが「${input}」と言いました。ゲームのルールに従ってJSONで応答してください。`);
       }
 
-      if (!rawText) throw new Error("AIから応答が得られませんでした（安全フィルター等）");
+      if (!rawText) throw new Error("AIから応答が得られませんでした（安全フィルター等）。別の言い方で試してみてください。");
 
-      const result = JSON.parse(rawText.replace(/```json|```/g, '').trim());
+      let jsonText = rawText.replace(/```json|```/g, '').trim();
+      const firstBrace = jsonText.indexOf('{');
+      const lastBrace = jsonText.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        jsonText = jsonText.substring(firstBrace, lastBrace + 1);
+      }
+      const result = JSON.parse(jsonText);
       setIsThinking(false);
 
       if (!result.valid) { speak(result.feedback || "ルール違反よ。", "優しく"); return; }
@@ -625,11 +637,34 @@ function WordGame() {
           
           <div className="bg-zinc-900 p-6 rounded-2xl border border-pink-900 mb-8 shadow-lg shadow-pink-900/20">
             <label className="block text-sm font-bold mb-2 text-pink-400">Cloud Generative Language API Key (Gemini)</label>
-            <p className="text-xs text-zinc-500 mb-3">AIとの会話（テキスト生成）と Gemini 音声に使用します。Google AI Studio または Google Cloud Console で取得したキーを入力してください。</p>
-            <input type="password" value={geminiApiKey} onChange={(e) => setGeminiApiKey(e.target.value)} placeholder="AIzaSy..." className="w-full bg-black border border-zinc-700 p-3 rounded-xl text-sm font-mono focus:border-pink-500 focus:outline-none mb-4" />
-            
+            <p className="text-xs text-zinc-500 mb-3">AIとの会話（テキスト生成）と Gemini 音声に使用します。[Google AI Studio](https://aistudio.google.com/app/apikey) 等で取得してください。</p>
+            <div className="flex gap-2">
+              <input type="password" value={geminiApiKey} onChange={(e) => setGeminiApiKey(e.target.value)} placeholder="AIzaSy..." className="flex-1 bg-black border border-zinc-700 p-3 rounded-xl text-sm font-mono focus:border-pink-500 focus:outline-none" />
+              <button 
+                onClick={async () => {
+                  try {
+                    setIsThinking(true);
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ contents: [{ parts: [{ text: "Hello, reply 'OK' if you can hear me." }] }] })
+                    });
+                    const data = await res.json();
+                    setIsThinking(false);
+                    if (data.candidates?.[0]?.content?.parts?.[0]?.text) alert("Gemini API接続成功！");
+                    else throw new Error(data.error?.message || "応答がありませんでした");
+                  } catch (e) { alert("接続エラー: " + e.message); setIsThinking(false); }
+                }}
+                disabled={!geminiApiKey || isThinking}
+                className="px-4 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
+              >テスト</button>
+            </div>
+            <p className="text-[10px] text-zinc-500 mt-4">※安全フィルターにより、過激すぎる入力はブロックされる場合があります。</p>
+          </div>
+
+          <div className="bg-zinc-900 p-6 rounded-2xl border border-blue-900 mb-8 shadow-lg shadow-blue-900/20">
             <label className="block text-sm font-bold mb-2 text-blue-400">Cloud Text-to-Speech API Key (Journey/Neural2)</label>
-            <p className="text-xs text-zinc-500 mb-3">Journey や Neural2 などの高品質音声に使用します。Google Cloud Console で「Cloud Text-to-Speech API」を有効化したキーを入力してください。</p>
+            <p className="text-xs text-zinc-500 mb-3">Journey や Neural2 などの高品質音声に使用します。GCPで「Cloud Text-to-Speech API」を有効化したキーを入力してください。</p>
             <div className="flex gap-2">
               <input type="password" value={gcpApiKey} onChange={(e) => setGcpApiKey(e.target.value)} placeholder="AIzaSy..." className="flex-1 bg-black border border-zinc-700 p-3 rounded-xl text-sm font-mono focus:border-blue-500 focus:outline-none" />
               <button 
