@@ -470,8 +470,8 @@ function WordGame() {
       // 空レスポンスの場合、システム指示を「安全なもの」に差し替えてリトライ
       if (!rawText) {
         console.log("Retrying with safe system prompt...");
-        const safeSys = "あなたは優秀なシリトリAIです。必ずJSON形式で、valid, feedback, word, word_reading, next_kana, arousal_inc を返してください。";
-        rawText = await callGemini(`プレイヤーが「${input}」と言いました。ゲームのルールに従って、当たり障りのない表現でJSON応答してください。`, safeSys);
+        const safeSys = "あなたは優秀なシリトリAIです。プレイヤーの単語を絶対に繰り返さないでください。必ずJSON形式で、valid, feedback, word, word_reading, next_kana, arousal_inc を返してください。";
+        rawText = await callGemini(`プレイヤーが「${input}」と言いました。ゲームのルールに従って、別の単語を使いJSON応答してください。`, safeSys);
       }
 
       if (!rawText) throw new Error("AIから応答が得られませんでした（安全フィルター等）。別の言い方で試してみてください。");
@@ -520,7 +520,7 @@ function WordGame() {
         clearSaveData(); speak(result.feedback, "絶頂", null, true, nextA);
       } else {
         saveGameProgress(nextA, finalNextK, newHistory, s.selectedCharKey);
-        const wordDisplay = aiStartsCorrectly ? `……「${result.word}」よ。` : '……うまく言えなかったわ。もう一度「${expectedKana}」からよ。';
+        const wordDisplay = aiStartsCorrectly ? `……「${result.word}」よ。` : `……うまく言えなかったわ。もう一度「${expectedKana}」からよ。`;
         speak(`${result.feedback}${wordDisplay}`, result.tts_instruction, finalNextK, false, nextA);
       }
     } catch (e) {
@@ -782,7 +782,12 @@ function WordGame() {
       {(gameState === 'ready' || gameState === 'gameover') && (
         <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
           <h2 className="text-4xl font-black mb-8">{gameState === 'gameover' ? (gameResult === 'win' ? 'VICTORY!!' : 'GAME OVER') : 'READY?'}</h2>
-          <button onClick={() => { setGameState('playing'); setArousal(0); setHistory([]); setDisplayKana(startKanaSetting); saveGameProgress(0, startKanaSetting, [], selectedCharKey); speak(`始めましょう。最初は「${startKanaSetting}」からよ。`, "妖艶に"); }} className="px-12 py-4 bg-pink-600 rounded-full font-bold text-lg shadow-2xl hover:scale-105 transition-transform">
+          <button onClick={() => { 
+            setAiResponseText(''); setPlayerInputText('');
+            setGameState('playing'); setArousal(0); setHistory([]); setDisplayKana(startKanaSetting); 
+            saveGameProgress(0, startKanaSetting, [], selectedCharKey); 
+            speak(`始めましょう。最初は「${startKanaSetting}」からよ。`, "妖艶に"); 
+          }} className="px-12 py-4 bg-pink-600 rounded-full font-bold text-lg shadow-2xl hover:scale-105 transition-transform">
             {gameState === 'gameover' ? 'もう一度' : '対話を開始'}
           </button>
         </div>
@@ -798,14 +803,6 @@ function WordGame() {
             {/* テキスト入力モードの時は、話した言葉の表示を少し変える */}
             {(!isListening && playerInputText && !aiResponseText) && (
               <p className="text-2xl text-pink-200 font-bold animate-pulse drop-shadow-md">{playerInputText}・・・</p>
-            )}
-            
-            {isThinking && (
-              <div className="flex gap-1 mt-2">
-                <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce" />
-                <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce [animation-delay:0.2s]" />
-                <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce [animation-delay:0.4s]" />
-              </div>
             )}
           </div>
 
