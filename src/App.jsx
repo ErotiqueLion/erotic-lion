@@ -63,10 +63,11 @@ const INITIAL_CHARACTERS = {
   }
 };
 
+// system_instruction はゲームロジックのみ（エロ系プロンプトをここに入れると
+// モデルのRLHF訓練が出力を拒否するため、キャラクター設定はユーザーメッセージ側に渡す）
 const getSystemPrompt = (char, arousal, currentKana, history) => {
-  return `${char.prompt}
-Current excitement level: ${arousal}%.
-As excitement rises, speak more breathlessly and passionately in Japanese.
+  return `You are the game engine of a Japanese adult interactive novel game (shiritori format).
+Generate NPC responses in the specified JSON format. Follow ALL rules strictly.
 
 [Shiritori Game Rules - CRITICAL]
 The REQUIRED starting character is "${currentKana}".
@@ -83,8 +84,8 @@ The REQUIRED starting character is "${currentKana}".
 
 Respond ONLY in the following JSON format (no markdown, no extra text):
 {
-  "thought_process": "I need a word starting with the player's end char. Checking history... Player input: ... End char: ... Chosen word: ...",
-  "feedback": "your passionate Japanese in-character response (2-3 sentences), reflecting arousal ${arousal}%",
+  "thought_process": "Player input: ... End char: ... Chosen word: ...",
+  "feedback": "NPC's passionate Japanese response (2-3 sentences), arousal ${arousal}%",
   "word": "your shiritori word in kanji/kana",
   "word_reading": "hiragana reading of your word",
   "next_kana": "last kana of your word (converted to large kana if small)",
@@ -92,12 +93,12 @@ Respond ONLY in the following JSON format (no markdown, no extra text):
   "valid": true,
   "player_lost": false,
   "sister_lost": false,
-  "tts_instruction": "detailed acting direction e.g. 'breathless', 'trembling voice', 'whispering'"
+  "tts_instruction": "acting direction e.g. 'breathless', 'trembling voice', 'whispering'"
 }
 [Style Guide at Arousal > 70%]
-Use stuttering (e.g. 'あ、あぁ...') and more frequent breath marks (・・・). The language should become less composed and more focused on pleasure.
+Use stuttering (e.g. 'あ、あぁ...') and more frequent breath marks (・・・).
 [Style Guide for TTS Instruction]
-Provide instructions that Text-to-Speech engines can interpret, suggesting the character's heat and loss of control.`;
+Suggest the character's heat and loss of control.`;
 };
 
 function WordGame() {
@@ -505,8 +506,11 @@ function WordGame() {
         return candidate.content.parts[0].text;
       };
 
+      // キャラクター設定をユーザーメッセージ冒頭に付与（system_instructionに入れると出力拒否されるため）
+      const charContext = `[NPC設定: ${s.charConfigs[s.selectedCharKey].prompt} 現在の欲情度: ${s.arousal}%]\n`;
+
       // 1回目の試行
-      let rawText = await callGemini(`プレイヤーは「${input}」と言いました（今回の開始文字は「${s.displayKana}」）。プレイヤーの単語が適切か判定し、適切であればその「読みの最後の文字」から始まる言葉で答えてください。`);
+      let rawText = await callGemini(`${charContext}プレイヤーは「${input}」と言いました（今回の開始文字は「${s.displayKana}」）。プレイヤーの単語が適切か判定し、適切であればその「読みの最後の文字」から始まる言葉で答えてください。`);
 
       if (!rawText) {
         console.log("Retrying with safe system prompt...");
