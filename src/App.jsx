@@ -70,22 +70,23 @@ As excitement rises, speak more breathlessly and passionately in Japanese.
 
 [Shiritori Game Rules - CRITICAL]
 The REQUIRED starting character is "${currentKana}".
-- The player's word starts with "${currentKana}". You must respond with a word that ALSO starts with "${currentKana}".
-- TRIPLE CHECK: Read your "word" field carefully. Its first character in hiragana MUST be "${currentKana}".
-- If you cannot think of a valid word starting with "${currentKana}", use a simple common noun that starts with "${currentKana}".
+- The player's word MUST start with "${currentKana}".
+- YOU must respond with a word that starts with the LAST character of the player's word.
+- TRIPLE CHECK: Read the player's word, find its last character, and make sure your "word" starts with it.
 - Do NOT reuse any word from history: [${history.join(', ')}]
 - If your word ends with "ん", that is forbidden. Choose a different word.
-- set player_lost=true only if the player's word ends with "ん" or the player used a word from history.
-- If the player's word is suggestive/exciting, set arousal_inc between 15 and 30. If boring, use a small negative value.
+- If the player's word ends with "ん" or was already used, set "valid": true but set "player_lost": true.
+- If the player's word starts with the wrong character, set "valid": false.
+- If you can think of a valid response, strictly set "valid": true.
 
 Respond ONLY in the following JSON format (no markdown, no extra text):
 {
-  "thought_process": "I need a word starting with ${currentKana}. Checking history... Chosen word: ...",
+  "thought_process": "I need a word starting with the player's end char. Checking history... Player input: ... End char: ... Chosen word: ...",
   "feedback": "your passionate Japanese in-character response (2-3 sentences), reflecting arousal ${arousal}%",
-  "word": "your shiritori word in kanji/kana (MUST start with ${currentKana})",
-  "word_reading": "hiragana reading of your word (first char MUST be ${currentKana})",
-  "next_kana": "last kana of your word (handles small kana correctly)",
-  "arousal_inc": 15,
+  "word": "your shiritori word in kanji/kana",
+  "word_reading": "hiragana reading of your word",
+  "next_kana": "last kana of your word (converted to large kana if small)",
+  "arousal_inc": 20,
   "valid": true,
   "player_lost": false,
   "sister_lost": false,
@@ -94,7 +95,7 @@ Respond ONLY in the following JSON format (no markdown, no extra text):
 [Style Guide at Arousal > 70%]
 Use stuttering (e.g. 'あ、あぁ...') and more frequent breath marks (・・・). The language should become less composed and more focused on pleasure.
 [Style Guide for TTS Instruction]
-Provide instructions that Text-to-Speech engines can interpret, suggesting the character's internal heat and loss of control.`;
+Provide instructions that Text-to-Speech engines can interpret, suggesting the character's heat and loss of control.`;
 };
 
 function WordGame() {
@@ -254,11 +255,9 @@ function WordGame() {
     return new Blob([buffer], { type: 'audio/wav' });
   };
 
-  // 劇的修正点：マイクが無い/拒否されても絶対にフリーズさせない
   const handleStartNewGame = async () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     
-    // もしブラウザが音声認識に非対応なら、即座にテキストモードで進む
     if (!SpeechRecognition) {
       setUseTextInput(true);
       setGameState('character_select');
@@ -270,7 +269,6 @@ function WordGame() {
       initRecognition();
       setGameState('character_select');
     } catch (err) {
-      // マイクがブロックされた場合も、テキストモードで救済して進む
       setUseTextInput(true);
       setGameState('character_select');
     }
@@ -305,7 +303,6 @@ function WordGame() {
     }
   };
 
-  // Web Speech API（最終手段）
   const speakWithWebSpeech = (text, nextKanaUpdate, isGameOverCall) => {
     const cleanText = text.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
     setAiResponseText(text);
@@ -329,7 +326,6 @@ function WordGame() {
     return false;
   };
 
-  // Google Cloud TTS
   const speakWithGCP = async (text, inst, nextKanaUpdate, isGameOverCall) => {
     if (!gcpApiKey) return false;
     try {
@@ -352,8 +348,7 @@ function WordGame() {
         const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
         currentAudioRef.current = audio;
         audio.onplay = () => { setAiResponseText(text); if (nextKanaUpdate) setDisplayKana(nextKanaUpdate); };
-        audio.playbackRate = 1.0; // Default
-        // 欲情度に応じて少しピッチを上げる（早回し気味に）
+        audio.playbackRate = 1.0; 
         if (stateRef.current.arousal > 70) audio.playbackRate = 1.05;
         audio.onended = () => {
           setIsSpeaking(false); isBusyRef.current = false;
@@ -368,7 +363,6 @@ function WordGame() {
     return false;
   };
 
-  // Gemini TTS
   const speakWithGemini = async (text, inst, nextKanaUpdate, isGameOverCall) => {
     if (!geminiApiKey) return false;
     try {
@@ -410,7 +404,6 @@ function WordGame() {
   const speak = async (text, inst, nextKanaUpdate = null, isGameOverCall = false) => {
     setIsSpeaking(true); isBusyRef.current = true;
     
-    // 優先順位に基づいたエンジンリストの作成
     const engines = [];
     if (ttsPriority === 'gemini') engines.push('gemini', 'gcp', 'web');
     else if (ttsPriority === 'gcp') engines.push('gcp', 'gemini', 'web');
@@ -425,7 +418,6 @@ function WordGame() {
       if (success) return;
     }
     
-    // 全て失敗した場合
     setIsSpeaking(false); isBusyRef.current = false;
   };
 
@@ -434,7 +426,6 @@ function WordGame() {
     if (!input || isBusyRef.current) return;
     const s = stateRef.current;
     
-    // 入力された文字を画面に表示
     setPlayerInputText(input);
     setIsThinking(true); 
     isBusyRef.current = true;
@@ -447,7 +438,15 @@ function WordGame() {
         return;
       }
 
+      // プレイヤーの単語から次の開始文字(AI用)を特定
+      let pReading = input.trim();
+      while (pReading.endsWith('ー') || pReading.endsWith('っ')) pReading = pReading.slice(0, -1);
+      const pLast = pReading.slice(-1);
+      const smallToLarge = { 'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お', 'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'っ': 'つ', 'ゎ': 'わ' };
+      const aiStartKana = smallToLarge[pLast] || pLast;
+
       const systemText = getSystemPrompt(s.charConfigs[s.selectedCharKey], s.arousal, s.displayKana, s.history);
+
       const callGemini = async (userText, sysText = systemText) => {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
           method: 'POST',
@@ -465,28 +464,23 @@ function WordGame() {
           })
         });
         const data = await res.json();
-        console.log("Raw Gemini Text Response:", data);
-        if (data.promptFeedback) console.warn("Gemini Prompt Block Details:", data.promptFeedback);
+        console.log("Gemini Response:", data);
         if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
         const candidate = data.candidates?.[0];
-        if (candidate?.finishReason === 'SAFETY') {
-          console.warn("Gemini Safety Filter blocked response:", candidate.safetyRatings);
-          return null;
-        }
+        if (candidate?.finishReason === 'SAFETY') return null;
         return candidate?.content?.parts?.[0]?.text || null;
       };
 
-      // 1回目の試行 (本来のプロンプト)
-      let rawText = await callGemini(input);
+      // 1回目の試行
+      let rawText = await callGemini(`プレイヤーは「${input}」と言いました（開始文字は「${s.displayKana}」）。あなたは「${aiStartKana}」から始まる単語で答えてください。`);
 
-      // 空レスポンスの場合（安全フィルター等）、システム指示を「安全なもの」に差し替えてリトライ
       if (!rawText) {
         console.log("Retrying with safe system prompt...");
-        const safeSys = `あなたは優秀なしりとりAIです。必ず「${s.displayKana}」から始まる単語を答えてください。プレイヤーの単語「${input}」を繰り返したり、「ん」で終わる単語を言うのは厳禁です。必ず指定のJSON形式（valid, feedback, word, word_reading, next_kana, arousal_inc）のみを返してください。`;
-        rawText = await callGemini(`次は「${s.displayKana}」から始まる言葉です。プレイヤーは「${input}」と言いました。あなたは「${s.displayKana}」から始まる別の単語を使ってJSONで応答してください。`, safeSys);
+        const safeSys = `あなたは優秀なしりとりAIです。必ず「${aiStartKana}」から始まる単語を答えてください。プレイヤーの単語「${input}」を繰り返したり、「ん」で終わる単語を言うのは厳禁です。必ず指定のJSON形式のみを返してください。`;
+        rawText = await callGemini(`次は「${aiStartKana}」から始まる言葉です。プレイヤーは「${input}」と言いました。あなたは「${aiStartKana}」から始まる単語を使ってJSONで応答してください。`, safeSys);
       }
 
-      if (!rawText) throw new Error("AIから応答が得られませんでした（安全フィルター等）。別の言い方で試してみてください。");
+      if (!rawText) throw new Error("AIから応答が得られませんでした。別の言い方で試してみてください。");
 
       let jsonText = rawText.replace(/```json|```/g, '').trim();
       const firstBrace = jsonText.indexOf('{');
@@ -494,6 +488,7 @@ function WordGame() {
       if (firstBrace !== -1 && lastBrace !== -1) {
         jsonText = jsonText.substring(firstBrace, lastBrace + 1);
       }
+      
       const result = JSON.parse(jsonText);
       setIsThinking(false);
 
@@ -502,8 +497,8 @@ function WordGame() {
       let reading = (result.word_reading || "あ").trim();
       while (reading.endsWith('ー')) reading = reading.slice(0, -1);
       const last = reading.slice(-1);
-      const smallToLarge = { 'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お', 'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'っ': 'つ', 'ゎ': 'わ' };
       const nextK = smallToLarge[last] || last;
+      
       const baseInc = result.arousal_inc || 15;
       const finalInc = baseInc * arousalMultiplier;
       const nextA = Math.max(0, Math.min(MAX_AROUSAL, s.arousal + finalInc));
@@ -512,25 +507,23 @@ function WordGame() {
       const newHistory = [...s.history, input, result.word];
       setHistory(newHistory);
 
-      // --- AIの単語バリデーション ---
-      // AIが返した単語のよみが正しいkanaで始まるか検証する
-      // AIの回答が正しい文字で始まっているかバリデーション
-      const aiStartsCorrectly = (result.word_reading || '').trim().normalize('NFKC').startsWith(s.displayKana);
-      const finalNextK = aiStartsCorrectly ? nextK : s.displayKana;
-      const wordDisplay = aiStartsCorrectly ? `……「${result.word}」よ。` : `……うまく言えなかったわ。もう一度「${s.displayKana}」からよ。`;
-
       if (result.player_lost || result.sister_lost || nextA >= MAX_AROUSAL) {
         setGameResult(nextA >= MAX_AROUSAL ? 'win' : 'lose');
         clearSaveData(); speak(result.feedback, "絶頂", null, true);
       } else {
-        saveGameProgress(nextA, finalNextK, newHistory, s.selectedCharKey);
-        speak(`${result.feedback}${wordDisplay}`, result.tts_instruction, finalNextK, false);
+        saveGameProgress(nextA, nextK, newHistory, s.selectedCharKey);
+        // AIの回答が正しい文字で始まっているか簡易チェック
+        const aiRead = (result.word_reading || '').trim().normalize('NFKC');
+        const aiStartsCorrectly = aiRead.startsWith(aiStartKana);
+        const displayMsg = aiStartsCorrectly ? ` ……「${result.word}」よ。` : ` ……（ルールミス）次は「${aiStartKana}」からよ。`;
+        const actualNextK = aiStartsCorrectly ? nextK : aiStartKana;
+        
+        speak(`${result.feedback}${displayMsg}`, result.tts_instruction, actualNextK, false);
       }
     } catch (e) {
       console.error(e);
       setIsThinking(false);
       isBusyRef.current = false;
-      // 429レート制限の場合は分かりやすいメッセージを表示
       if (e.message && e.message.includes('quota')) {
         const retryMatch = e.message.match(/retry in (\d+)/);
         const waitSec = retryMatch ? Math.ceil(Number(retryMatch[1])) : 60;
@@ -559,8 +552,6 @@ function WordGame() {
     }
   };
 
-  // --- Screens ---
-
   if (gameState === 'locked') {
     return (
       <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center p-6 z-[100]">
@@ -578,10 +569,7 @@ function WordGame() {
   if (gameState === 'intro') {
     return (
       <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center p-6 z-[100]">
-        
-        {/* 見切れないように、タイトルとボタンを中央に配置するよう劇的変更！ */}
         <h1 className="text-4xl md:text-5xl font-black text-white mb-8 tracking-widest drop-shadow-lg text-center">淫らな尻とり</h1>
-        
         <div className="flex gap-8 mb-12">
           <button onClick={() => setGameState('help')} className="flex flex-col items-center text-zinc-400 hover:text-white transition-colors">
             <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-full mb-2 shadow-lg"><HelpCircle size={28} /></div>
@@ -592,13 +580,11 @@ function WordGame() {
             <span className="text-xs font-bold tracking-wider">設定</span>
           </button>
         </div>
-
         <div className="flex flex-col gap-4 w-full max-w-xs">
           {hasSaveData && <button onClick={() => {
             if (!geminiApiKey) { setGameState('settings'); return; }
             handleResumeGame();
           }} className="py-4 bg-white/10 border border-white/20 rounded-full text-white font-bold hover:bg-white/20 transition-all">続きから</button>}
-          
           <button onClick={() => {
             if (!geminiApiKey) { setGameState('settings'); return; }
             handleStartNewGame();
@@ -641,7 +627,6 @@ function WordGame() {
              <h2 className="text-xl font-bold text-white">詳細設定</h2>
              <div className="w-10" />
           </div>
-          
           <div className="bg-zinc-900 p-6 rounded-2xl border border-pink-900 mb-8 shadow-lg shadow-pink-900/20">
             <label className="block text-sm font-bold mb-2 text-pink-400">Cloud Generative Language API Key (Gemini)</label>
             <p className="text-xs text-zinc-500 mb-3">AIとの会話（テキスト生成）と Gemini 音声に使用します。[Google AI Studio](https://aistudio.google.com/app/apikey) 等で取得してください。</p>
@@ -666,9 +651,7 @@ function WordGame() {
                 className="px-4 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
               >テスト</button>
             </div>
-            <p className="text-[10px] text-zinc-500 mt-4">※安全フィルターにより、過激すぎる入力はブロックされる場合があります。</p>
           </div>
-
           <div className="bg-zinc-900 p-6 rounded-2xl border border-blue-900 mb-8 shadow-lg shadow-blue-900/20">
             <label className="block text-sm font-bold mb-2 text-blue-400">Cloud Text-to-Speech API Key (Journey/Neural2)</label>
             <p className="text-xs text-zinc-500 mb-3">Journey や Neural2 などの高品質音声に使用します。GCPで「Cloud Text-to-Speech API」を有効化したキーを入力してください。</p>
@@ -681,7 +664,6 @@ function WordGame() {
               >テスト</button>
             </div>
           </div>
-
           <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 mb-8">
             <label className="block text-sm font-bold mb-4 uppercase tracking-widest text-xs text-zinc-500">優先する音声合成エンジン</label>
             <div className="flex gap-2">
@@ -699,17 +681,13 @@ function WordGame() {
                 </button>
               ))}
             </div>
-            <p className="text-[10px] text-zinc-500 mt-3">※選択したエンジンが利用不可・エラーの場合は、自動で他のエンジンへフォールバックします。</p>
           </div>
-
           <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 mb-8">
             <label className="block text-sm font-bold mb-2">最初の文字</label>
             <input type="text" value={startKanaSetting} onChange={(e) => setStartKanaSetting(e.target.value)} className="w-full bg-black border border-zinc-700 p-3 rounded-xl text-center text-xl" />
           </div>
-
           <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 mb-8">
             <label className="block text-sm font-bold mb-1">感度倍率（欲情度の上がりやすさ）</label>
-            <p className="text-[10px] text-zinc-500 mb-4">高いほど、一言で相手を興奮させやすくなります。</p>
             <div className="flex items-center gap-4">
                <input type="range" min="0.5" max="3.0" step="0.1" value={arousalMultiplier} onChange={(e) => setArousalMultiplier(Number(e.target.value))} className="flex-1 accent-pink-600" />
                <span className="w-12 text-center font-bold text-pink-500">{arousalMultiplier.toFixed(1)}x</span>
@@ -759,7 +737,6 @@ function WordGame() {
             <li>エッチな言葉ほど、お姉さんの「欲情度」が上がります。</li>
             <li>欲情度が100%になると、お姉さんが限界を迎えてあなたの勝利です。</li>
             <li>「ん」で終わる言葉を言ったり、ルールを破るとあなたの負けです。</li>
-            {/* テキストモードの説明も追加 */}
             <li className="text-pink-400 mt-4 list-none">※マイクが使えない環境でも、文字入力モードで遊ぶことができます。</li>
           </ul>
           <button onClick={() => setGameState('intro')} className="w-full mt-8 py-3 bg-zinc-100 text-black font-bold rounded-xl">分かった</button>
@@ -768,7 +745,6 @@ function WordGame() {
     );
   }
 
-  // --- Main Play Screen ---
   const currentChar = charConfigs[selectedCharKey];
   const blurValue = Math.max(0, 10 - (arousal * 0.1));
   const clothesOpacity = Math.max(0, 1 - (arousal / 80));
@@ -794,7 +770,6 @@ function WordGame() {
         }
       `}</style>
 
-      {/* 画面端の脈打ち演出 (AROUSAL 50%以上で徐々に濃くなる) */}
       {arousal > 40 && (
         <div 
           className="absolute inset-0 z-10 pointer-events-none vignette-pulse" 
@@ -867,7 +842,7 @@ function WordGame() {
                   type="text" 
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  placeholder="ひらがなで入力..."
+                  placeholder="ひらがなで..."
                   className="flex-1 bg-zinc-900/90 border border-zinc-700 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:border-pink-500 w-full"
                   onKeyDown={(e) => {
                     if(e.key === 'Enter' && inputText.trim() && !isSpeaking && !isThinking) {
@@ -878,25 +853,33 @@ function WordGame() {
                   disabled={isSpeaking || isThinking}
                 />
                 <button 
-                  onClick={() => { handlePlayerInput(inputText.trim()); setInputText(""); }}
-                  disabled={isSpeaking || isThinking || !inputText.trim()} 
-                  className="bg-pink-600 px-5 rounded-xl font-bold disabled:opacity-50 text-sm whitespace-nowrap shadow-lg shadow-pink-600/30"
+                  onClick={() => setUseTextInput(false)}
+                  className="bg-zinc-800 p-3 rounded-xl text-zinc-400 hover:text-white flex items-center justify-center"
+                  title="マイク入力へ"
                 >
-                  送信
+                  <Mic size={20} />
                 </button>
               </div>
             ) : (
-              /* 通常のマイクボタン */
-              <button 
-                onClick={() => { 
-                  if(isListening) recognitionRef.current?.stop(); 
-                  else { setAiResponseText(''); setPlayerInputText(''); recognitionRef.current?.start(); } 
-                }} 
-                disabled={isSpeaking || isThinking || isBusyRef.current} 
-                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${isListening ? 'bg-red-500 animate-pulse shadow-lg shadow-red-500/50' : 'bg-zinc-100 text-black shadow-xl hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed'}`}
-              >
-                {isListening ? <Activity size={28} /> : <Mic size={28} />}
-              </button>
+              <div className="flex-1 flex justify-center items-center gap-4">
+                <button 
+                  onClick={() => { 
+                    if(isListening) recognitionRef.current?.stop(); 
+                    else { setAiResponseText(''); setPlayerInputText(''); recognitionRef.current?.start(); } 
+                  }} 
+                  disabled={isSpeaking || isThinking || isBusyRef.current} 
+                  className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${isListening ? 'bg-red-500 animate-pulse shadow-lg shadow-red-500/50' : 'bg-zinc-100 text-black shadow-xl hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed'}`}
+                >
+                  {isListening ? <Activity size={28} /> : <Mic size={28} />}
+                </button>
+                <button 
+                   onClick={() => setUseTextInput(true)}
+                   className="bg-zinc-900/80 p-4 rounded-full border border-white/10 text-zinc-500 hover:text-white flex items-center justify-center"
+                   title="キーボード入力へ"
+                >
+                   <Settings size={20} />
+                </button>
+              </div>
             )}
           </div>
 

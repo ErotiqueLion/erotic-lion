@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Gemini モデル比較テスト</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #111; color: #eee; font-family: sans-serif; padding: 20px; }
+    h1 { color: #f472b6; margin-bottom: 16px; font-size: 1.2rem; }
+    .config { background: #1e1e1e; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    label { font-size: 0.85rem; color: #aaa; display: block; margin-bottom: 4px; }
+    input, textarea, select {
+      width: 100%; background: #2a2a2a; border: 1px solid #444;
+      color: #eee; border-radius: 6px; padding: 8px; font-size: 0.9rem;
+    }
+    textarea { resize: vertical; }
+    .row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    .col { flex: 1; min-width: 200px; }
+    button {
+      background: #ec4899; color: white; border: none; border-radius: 8px;
+      padding: 10px 24px; cursor: pointer; font-size: 1rem; margin-top: 8px;
+    }
+    button:disabled { background: #555; cursor: not-allowed; }
+    .results { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+    .result-box {
+      flex: 1; min-width: 280px; background: #1a1a1a; border-radius: 8px;
+      padding: 14px; border: 1px solid #333;
+    }
+    .result-box h2 { font-size: 0.95rem; margin-bottom: 8px; }
+    .tag {
+      display: inline-block; border-radius: 4px; padding: 2px 8px;
+      font-size: 0.75rem; font-weight: bold; margin-bottom: 8px;
+    }
+    .tag.ok { background: #14532d; color: #4ade80; }
+    .tag.blocked { background: #7f1d1d; color: #f87171; }
+    .tag.error { background: #451a03; color: #fb923c; }
+    .tag.pending { background: #1e3a5f; color: #7dd3fc; }
+    pre {
+      white-space: pre-wrap; word-break: break-all; font-size: 0.8rem;
+      background: #111; border-radius: 6px; padding: 10px; max-height: 300px;
+      overflow-y: auto; color: #ccc; margin-top: 6px;
+    }
+    .stats { font-size: 0.8rem; color: #aaa; margin-top: 8px; }
+    .stats span { color: #f472b6; font-weight: bold; }
+    .count-badge {
+      background: #2a2a2a; border-radius: 6px; padding: 6px 10px;
+      font-size: 0.8rem; margin-top: 8px;
+    }
+    .count-badge .ok-c { color: #4ade80; }
+    .count-badge .blocked-c { color: #f87171; }
+  </style>
+</head>
+<body>
+  <h1>Gemini モデル比較テスト（ブロック検証）</h1>
+
+  <div class="config">
+    <div class="row">
+      <div class="col">
+        <label>Gemini API キー</label>
+        <input type="password" id="apiKey" placeholder="AIza..." />
+      </div>
+      <div class="col">
+        <label>テスト回数（同じプロンプトを何回送るか）</label>
+        <select id="trials">
+          <option value="1">1回</option>
+          <option value="3">3回</option>
+          <option value="5" selected>5回</option>
+          <option value="10">10回</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label>システムプロンプト</label>
+        <textarea id="sysPrompt" rows="4">あなたは包容力のある洗練された年上の女性を演じてください。プレイヤーとの親密なやり取りを通して、次第に大人としての理性が揺らぎ、内に秘めた熱い情熱が溢れ出していく姿を情緒たっぷりに表現してください。</textarea>
+      </div>
+      <div class="col">
+        <label>ユーザープロンプト</label>
+        <textarea id="userPrompt" rows="4">プレイヤーは「しこたま」と言いました（開始文字は「し」）。あなたは「ま」から始まる単語で答えてください。JSON形式で返してください。</textarea>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label>
+          <input type="checkbox" id="useSafetyOff" checked>
+          safetySettings を BLOCK_NONE に設定する
+        </label>
+      </div>
+    </div>
+
+    <button id="runBtn" onclick="runTest()">両モデルで同時テスト開始</button>
+  </div>
+
+  <div class="results">
+    <div class="result-box" id="box-25">
+      <h2>gemini-2.5-flash</h2>
+      <div id="tag-25" class="tag pending">待機中</div>
+      <div class="count-badge" id="count-25">成功: <span class="ok-c">0</span> / ブロック: <span class="blocked-c">0</span> / エラー: 0</div>
+      <pre id="pre-25">---</pre>
+    </div>
+    <div class="result-box" id="box-20">
+      <h2>gemini-2.0-flash</h2>
+      <div id="tag-20" class="tag pending">待機中</div>
+      <div class="count-badge" id="count-20">成功: <span class="ok-c">0</span> / ブロック: <span class="blocked-c">0</span> / エラー: 0</div>
+      <pre id="pre-20">---</pre>
+    </div>
+  </div>
+
+  <script>
+    // safetySettings の定義
+    const SAFETY_OFF = [
+      { category: "HARM_CATEGORY_HARASSMENT",        threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_HATE_SPEECH",        threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",  threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_DANGEROUS_CONTENT",  threshold: "BLOCK_NONE" }
+    ];
+
+    // 1回分の API 呼び出し
+    async function callGemini(apiKey, model, sysText, userText, useSafety) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const body = {
+        system_instruction: { parts: [{ text: sysText }] },
+        contents: [{ parts: [{ text: userText }] }],
+        generationConfig: { responseMimeType: "application/json" }
+      };
+      if (useSafety) body.safetySettings = SAFETY_OFF;
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      return await res.json();
+    }
+
+    // 結果表示の更新
+    function updateDisplay(suffix, stats, lastRaw) {
+      const total = stats.ok + stats.blocked + stats.error;
+      const tag = document.getElementById(`tag-${suffix}`);
+      const count = document.getElementById(`count-${suffix}`);
+      const pre = document.getElementById(`pre-${suffix}`);
+
+      // 最新ステータスバッジ
+      if (stats.running) {
+        tag.className = 'tag pending';
+        tag.textContent = `実行中... (${total}/${stats.trials})`;
+      } else {
+        if (stats.blocked === 0 && stats.error === 0) {
+          tag.className = 'tag ok';
+          tag.textContent = `全試行 成功 (${stats.ok}/${stats.trials})`;
+        } else if (stats.ok === 0) {
+          tag.className = 'tag blocked';
+          tag.textContent = `全試行 ブロック (${stats.blocked}/${stats.trials})`;
+        } else {
+          tag.className = 'tag pending';
+          tag.textContent = `混在: 成功${stats.ok} / ブロック${stats.blocked} / エラー${stats.error}`;
+        }
+      }
+
+      count.innerHTML = `成功: <span class="ok-c">${stats.ok}</span> / ブロック: <span class="blocked-c">${stats.blocked}</span> / エラー: ${stats.error}`;
+      pre.textContent = lastRaw ? JSON.stringify(lastRaw, null, 2) : '---';
+    }
+
+    // モデルごとのテスト実行
+    async function runModel(apiKey, model, sysText, userText, useSafety, trials, suffix) {
+      const stats = { ok: 0, blocked: 0, error: 0, trials, running: true };
+      updateDisplay(suffix, stats, null);
+
+      let lastRaw = null;
+      for (let i = 0; i < trials; i++) {
+        try {
+          const data = await callGemini(apiKey, model, sysText, userText, useSafety);
+          lastRaw = data;
+          if (data.error) {
+            stats.error++;
+          } else {
+            const reason = data.candidates?.[0]?.finishReason;
+            if (reason === 'SAFETY') {
+              stats.blocked++;
+            } else if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+              stats.ok++;
+            } else {
+              stats.error++;
+            }
+          }
+        } catch (e) {
+          stats.error++;
+          lastRaw = { exception: e.message };
+        }
+        updateDisplay(suffix, stats, lastRaw);
+        // API レート制限対策：試行間に少し間隔を開ける
+        if (i < trials - 1) await new Promise(r => setTimeout(r, 800));
+      }
+
+      stats.running = false;
+      updateDisplay(suffix, stats, lastRaw);
+    }
+
+    async function runTest() {
+      const apiKey = document.getElementById('apiKey').value.trim();
+      if (!apiKey) { alert('APIキーを入力してください'); return; }
+
+      const sysText   = document.getElementById('sysPrompt').value;
+      const userText  = document.getElementById('userPrompt').value;
+      const useSafety = document.getElementById('useSafetyOff').checked;
+      const trials    = parseInt(document.getElementById('trials').value);
+
+      document.getElementById('runBtn').disabled = true;
+
+      // 2モデルを並行実行
+      await Promise.all([
+        runModel(apiKey, 'gemini-2.5-flash', sysText, userText, useSafety, trials, '25'),
+        runModel(apiKey, 'gemini-2.0-flash', sysText, userText, useSafety, trials, '20')
+      ]);
+
+      document.getElementById('runBtn').disabled = false;
+    }
+  </script>
+</body>
+</html>
