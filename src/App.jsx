@@ -478,7 +478,9 @@ function WordGame() {
           body: JSON.stringify({
             system_instruction: { parts: [{ text: sysText }] },
             contents: [{ parts: [{ text: userText }] }],
-            generationConfig: { responseMimeType: "application/json" },
+            // responseMimeType を外す: 長いエロ系プロンプトと組み合わせると空レスポンスになるため
+            // システムプロンプトに JSON スキーマを明示しているので自然に JSON が返る
+            generationConfig: {},
             safetySettings: [
               { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
               { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
