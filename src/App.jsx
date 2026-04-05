@@ -443,9 +443,16 @@ function WordGame() {
       }
     } catch (e) {
       console.error(e);
-      setAiResponseText("エラーが発生しました: " + e.message);
       setIsThinking(false);
       isBusyRef.current = false;
+      // 429レート制限の場合は分かりやすいメッセージを表示
+      if (e.message && e.message.includes('quota')) {
+        const retryMatch = e.message.match(/retry in (\d+)/);
+        const waitSec = retryMatch ? Math.ceil(Number(retryMatch[1])) : 60;
+        setAiResponseText(`APIの制限に達しました。${waitSec}秒ほど待ってから、もう一度入力してください。`);
+      } else {
+        setAiResponseText("エラーが発生しました: " + e.message);
+      }
     }
   };
 
