@@ -33,7 +33,7 @@ const INITIAL_CHARACTERS = {
       unveiled: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=crop&w=800&q=80",
     },
     color: "#ec4899",
-    voice: "ja-JP-Neural2-B", 
+    voice: "Kore", 
     prompt: "あなたは妖艶な成熟したお姉さんです。プレイヤーの卑猥な言葉に、表面上の理性が少しずつ剥がれ落ち、本能が露わになっていく様子を生々しく演じてください。"
   },
   shizuka: {
@@ -44,7 +44,7 @@ const INITIAL_CHARACTERS = {
       unveiled: "https://images.unsplash.com/photo-1531123897727-8f129e16fd3c?auto=format&fit=crop&w=800&q=80",
     },
     color: "#3b82f6",
-    voice: "ja-JP-Wavenet-B", 
+    voice: "Aoede", 
     prompt: "あなたは冷徹な令嬢ですが、プレイヤーの攻めに屈し、プライドという名の服が脱げ去っていく屈辱と生々しい快楽を表現してください。"
   },
   marin: {
@@ -55,7 +55,7 @@ const INITIAL_CHARACTERS = {
       unveiled: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=800&q=80",
     },
     color: "#f97316",
-    voice: "ja-JP-Wavenet-A", 
+    voice: "Leda", 
     prompt: "あなたはからかい上手な小悪魔ですが、攻められた言葉の「エッチさ」に当てられて、次第に我慢できない状態に陥っていく様子を色っぽく表現してください。"
   }
 };
@@ -107,7 +107,11 @@ function WordGame() {
   const [displayKana, setDisplayKana] = useState(DEFAULT_START_KANA);
   const [history, setHistory] = useState([]);
   
-  // 新機能用のステート群
+  const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem('erotic_wordchain_apikey') || '');
+  useEffect(() => {
+    localStorage.setItem('erotic_wordchain_apikey', geminiApiKey);
+  }, [geminiApiKey]);
+
   const [useTextInput, setUseTextInput] = useState(false);
   const [inputText, setInputText] = useState("");
   const [isListening, setIsListening] = useState(false);
@@ -211,6 +215,21 @@ function WordGame() {
     return false;
   };
 
+  const pcmToWav = (pcmB64) => {
+    const binary = atob(pcmB64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const buffer = new ArrayBuffer(44 + bytes.length);
+    const view = new DataView(buffer);
+    const writeStr = (off, s) => { for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)); };
+    writeStr(0, 'RIFF'); view.setUint32(4, 32 + bytes.length, true); writeStr(8, 'WAVE');
+    writeStr(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true); view.setUint32(24, 24000, true); view.setUint32(28, 48000, true);
+    view.setUint16(32, 2, true); view.setUint16(34, 16, true); writeStr(36, 'data');
+    view.setUint32(40, bytes.length, true); new Uint8Array(buffer, 44).set(bytes);
+    return new Blob([buffer], { type: 'audio/wav' });
+  };
+
   // 劇的修正点：マイクが無い/拒否されても絶対にフリーズさせない
   const handleStartNewGame = async () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -265,35 +284,30 @@ function WordGame() {
   const speak = async (text, inst, nextKanaUpdate = null, isGameOverCall = false, speakArousal = stateRef.current.arousal) => {
     setIsSpeaking(true); isBusyRef.current = true;
     try {
-      // (笑)や(照れ)などの思考・ト書きタグは音声にならないよう除去
-      let ssmlText = text.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
-      
-      // 息遣いや「間」をSSMLタグに変換してリアルさを出す (以前の設定よりポーズを少し自然に調整)
-      ssmlText = ssmlText
-        .replace(/…{2,}|(\.\.\.)/g, '<break time="600ms"/>')
-        .replace(/…/g, '<break time="400ms"/>')
-        .replace(/、/g, '、<break time="200ms"/>')
-        .replace(/っ/g, 'っ<break time="150ms"/>')
-        .replace(/「|」/g, '<break time="100ms"/>'); // カギカッコも微細な間に
+      if (!geminiApiKey) throw new Error("APIキーが設定されていません");
 
-      // 欲情度に応じてピッチ(少し高く)と読み上げ速度(少し遅く、息苦しく)を変化。より自然な範囲に制限。
-      const pitch = (speakArousal * 0.01).toFixed(1); // 0.0 to +1.0st (過剰な変調を防ぐ)
-      const speakingRate = Math.max(0.85, 1.0 - (speakArousal * 0.0015)).toFixed(2); // 1.0 down to ~0.85
+      let cleanText = text.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
+      const ttsPrompt = `「${inst || '自然に'}」という感情を込めて言ってください：「${cleanText}」`;
 
-      const ssmlContent = `<speak><prosody pitch="+${pitch}st" rate="${speakingRate}">${ssmlText}</prosody></speak>`;
-
-      const res = await fetch(`/api/tts`, {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          input: { ssml: ssmlContent },
-          voice: { languageCode: 'ja-JP', name: charConfigs[stateRef.current.selectedCharKey].voice },
-          audioConfig: { audioEncoding: 'MP3' }
+          contents: [{ parts: [{ text: ttsPrompt }] }],
+          generationConfig: {
+            responseModalities: ["AUDIO"],
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: charConfigs[stateRef.current.selectedCharKey].voice } } }
+          }
         })
       });
+
       const data = await res.json();
-      if (data.audioContent) {
-        const audio = new Audio("data:audio/mp3;base64," + data.audioContent);
+      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+      const pcm = data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      
+      if (pcm) {
+        if (currentAudioRef.current) currentAudioRef.current.pause();
+        const audio = new Audio(URL.createObjectURL(pcmToWav(pcm)));
         currentAudioRef.current = audio;
         audio.onplay = () => { setAiResponseText(text); if (nextKanaUpdate) setDisplayKana(nextKanaUpdate); };
         audio.onended = () => {
@@ -305,7 +319,11 @@ function WordGame() {
         setAiResponseText(text); setIsSpeaking(false); isBusyRef.current = false;
         if (isGameOverCall) setGameState('gameover');
       }
-    } catch (e) { setIsSpeaking(false); isBusyRef.current = false; }
+    } catch (e) { 
+      console.error(e);
+      setAiResponseText(text); setIsSpeaking(false); isBusyRef.current = false;
+      if (isGameOverCall) setGameState('gameover');
+    }
   };
 
   const handlePlayerInput = async (input) => {
@@ -318,7 +336,14 @@ function WordGame() {
     isBusyRef.current = true;
 
     try {
-      const res = await fetch(`/api/chat`, {
+      if (!geminiApiKey) {
+        speak("APIキーが設定されてないわ。設定画面から入力してちょうだい。", "呆れたように");
+        setIsThinking(false);
+        isBusyRef.current = false;
+        return;
+      }
+
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -334,20 +359,14 @@ function WordGame() {
         })
       });
       
-      const rawText = await res.text();
-      let data;
-      try {
-        data = JSON.parse(rawText);
-      } catch (err) {
-        throw new Error("APIレスポンスのパースに失敗しました（VercelではなくVite単体で動いている可能性があります）");
-      }
-
-      if (data.error) throw new Error(data.error);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
       if (!data?.candidates?.[0]?.content?.parts?.[0]?.text) {
         throw new Error("APIエラー、または安全フィルターによるブロック: " + JSON.stringify(data));
       }
 
-      const result = JSON.parse(data.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim());
+      const rawText = data.candidates[0].content.parts[0].text;
+      const result = JSON.parse(rawText.replace(/```json|```/g, '').trim());
       setIsThinking(false);
 
       if (!result.valid) { speak(result.feedback || "ルール違反よ。", "優しく"); return; }
@@ -431,8 +450,15 @@ function WordGame() {
         </div>
 
         <div className="flex flex-col gap-4 w-full max-w-xs">
-          {hasSaveData && <button onClick={handleResumeGame} className="py-4 bg-white/10 border border-white/20 rounded-full text-white font-bold hover:bg-white/20 transition-all">続きから</button>}
-          <button onClick={handleStartNewGame} className="py-4 bg-pink-600 rounded-full text-white font-bold shadow-xl shadow-pink-600/20 hover:bg-pink-500 transition-all">開始する</button>
+          {hasSaveData && <button onClick={() => {
+            if (!geminiApiKey) { setGameState('settings'); return; }
+            handleResumeGame();
+          }} className="py-4 bg-white/10 border border-white/20 rounded-full text-white font-bold hover:bg-white/20 transition-all">続きから</button>}
+          
+          <button onClick={() => {
+            if (!geminiApiKey) { setGameState('settings'); return; }
+            handleStartNewGame();
+          }} className="py-4 bg-pink-600 rounded-full text-white font-bold shadow-xl shadow-pink-600/20 hover:bg-pink-500 transition-all">開始する</button>
         </div>
       </div>
     );
@@ -471,6 +497,13 @@ function WordGame() {
              <h2 className="text-xl font-bold text-white">詳細設定</h2>
              <div className="w-10" />
           </div>
+          
+          <div className="bg-zinc-900 p-6 rounded-2xl border border-pink-900 mb-8 shadow-lg shadow-pink-900/20">
+            <label className="block text-sm font-bold mb-2 text-pink-400">Gemini API Key (必須)</label>
+            <p className="text-xs text-zinc-500 mb-3">Google AI Studioで取得したAPIキーを入力してください。ブラウザにのみ保存されます。</p>
+            <input type="password" value={geminiApiKey} onChange={(e) => setGeminiApiKey(e.target.value)} placeholder="AIzaSy..." className="w-full bg-black border border-zinc-700 p-3 rounded-xl text-sm font-mono focus:border-pink-500 focus:outline-none" />
+          </div>
+
           <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 mb-8">
             <label className="block text-sm font-bold mb-2">最初の文字</label>
             <input type="text" value={startKanaSetting} onChange={(e) => setStartKanaSetting(e.target.value)} className="w-full bg-black border border-zinc-700 p-3 rounded-xl text-center text-xl" />

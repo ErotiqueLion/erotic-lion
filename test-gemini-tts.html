@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini TTS プレビュー機能 テスト</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #18181b; color: white; }
+        .container { max-w-xl; margin: 0 auto; background-color: #27272a; padding: 20px; border-radius: 8px; }
+        h1 { font-size: 1.5rem; margin-top: 0; color: #ec4899; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
+        input[type="password"], textarea, select { width: 100%; padding: 8px; margin-bottom: 20px; background-color: #3f3f46; border: 1px solid #52525b; color: white; border-radius: 4px; box-sizing: border-box; }
+        button { background-color: #ec4899; color: white; border: none; padding: 10px 20px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        button:hover { background-color: #db2777; }
+        button:disabled { background-color: #52525b; cursor: not-allowed; }
+        #status { margin-top: 15px; font-size: 0.9em; color: #a1a1aa; }
+        #error { margin-top: 15px; color: #f87171; white-space: pre-wrap; font-size: 0.85em; background-color: #450a0a; padding: 10px; border-radius: 4px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Gemini TTS 動作テスト</h1>
+        
+        <label for="apiKey">Gemini API Key</label>
+        <input type="password" id="apiKey" placeholder="AI Studioで取得したAPIキーを入力してください">
+        
+        <label for="voice">Voice Model</label>
+        <select id="voice">
+            <option value="Kore">Kore (標準的な女性)</option>
+            <option value="Aoede">Aoede (クール系)</option>
+            <option value="Leda">Leda (明るい系)</option>
+            <option value="Puck">Puck</option>
+            <option value="Zephyr">Zephyr</option>
+            <option value="Callirrhoe">Callirrhoe</option>
+            <option value="Charon">Charon</option>
+            <option value="Fenrir">Fenrir</option>
+        </select>
+        
+        <label for="textData">感情指示付きプロンプト（話してほしいテキスト）</label>
+        <textarea id="textData" rows="4">「妖艶な、色っぽい感情」を込めて言ってください：「そんなに見つめられたら、恥ずかしいわ…」</textarea>
+        
+        <button id="playBtn">音声を生成して再生</button>
+        <div id="status">準備完了</div>
+        <div id="error"></div>
+    </div>
+
+    <script>
+        // Gemini_Canvas.txt にあった PCMデータをWAV形式に変換する関数
+        const pcmToWav = (pcmB64) => {
+            const binary = atob(pcmB64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const buffer = new ArrayBuffer(44 + bytes.length);
+            const view = new DataView(buffer);
+            
+            const writeStr = (off, s) => { for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)); };
+            writeStr(0, 'RIFF'); 
+            view.setUint32(4, 32 + bytes.length, true); 
+            writeStr(8, 'WAVE');
+            writeStr(12, 'fmt '); 
+            view.setUint32(16, 16, true); 
+            view.setUint16(20, 1, true); // PCM Format
+            view.setUint16(22, 1, true); // 1 Channel (Mono)
+            view.setUint32(24, 24000, true); // Sample Rate (24kHz)
+            view.setUint32(28, 48000, true); // Byte Rate
+            view.setUint16(32, 2, true); // Block Align
+            view.setUint16(34, 16, true); // Bits Per Sample
+            writeStr(36, 'data');
+            view.setUint32(40, bytes.length, true); 
+            
+            new Uint8Array(buffer, 44).set(bytes);
+            return new Blob([buffer], { type: 'audio/wav' });
+        };
+
+        const playBtn = document.getElementById('playBtn');
+        const statusEl = document.getElementById('status');
+        const errorEl = document.getElementById('error');
+        let currentAudio = null;
+
+        playBtn.addEventListener('click', async () => {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const voice = document.getElementById('voice').value;
+            const text = document.getElementById('textData').value.trim();
+
+            if (!apiKey) {
+                alert('APIキーを入力してください。');
+                return;
+            }
+
+            if (currentAudio) {
+                currentAudio.pause();
+            }
+
+            playBtn.disabled = true;
+            statusEl.textContent = 'APIへリクエスト送信中...（数秒かかります）';
+            statusEl.style.color = '#38bdf8';
+            errorEl.style.display = 'none';
+
+            try {
+                // APIエンドポイント (Gemini_Canvas.txtの仕様に合わせる)
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: text }] }],
+                        generationConfig: {
+                            responseModalities: ["AUDIO"],
+                            speechConfig: { 
+                                voiceConfig: { 
+                                    prebuiltVoiceConfig: { voiceName: voice } 
+                                } 
+                            }
+                        }
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(JSON.stringify(data.error || data, null, 2));
+                }
+
+                const pcmBase64 = data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                
+                if (pcmBase64) {
+                    statusEl.textContent = '音声を受信しました。再生します...';
+                    statusEl.style.color = '#34d399';
+                    
+                    const wavBlob = pcmToWav(pcmBase64);
+                    const audioUrl = URL.createObjectURL(wavBlob);
+                    
+                    currentAudio = new Audio(audioUrl);
+                    currentAudio.onplay = () => {
+                        statusEl.textContent = '🔈 再生中...';
+                    };
+                    currentAudio.onended = () => {
+                        statusEl.textContent = '再生完了。';
+                        statusEl.style.color = '#a1a1aa';
+                        playBtn.disabled = false;
+                    };
+                    currentAudio.onerror = () => {
+                        throw new Error("音声の再生に失敗しました。Blobの変換またはブラウザの再生機能に問題があります。");
+                    };
+                    
+                    currentAudio.play();
+                } else {
+                    throw new Error("レスポンスから音声データ(PCM)が取得できませんでした。\n" + JSON.stringify(data, null, 2));
+                }
+
+            } catch (err) {
+                console.error(err);
+                statusEl.textContent = 'エラーが発生しました。';
+                statusEl.style.color = '#f87171';
+                errorEl.textContent = err.message;
+                errorEl.style.display = 'block';
+                playBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
