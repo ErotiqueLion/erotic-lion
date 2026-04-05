@@ -624,12 +624,12 @@ function WordGame() {
           </div>
           
           <div className="bg-zinc-900 p-6 rounded-2xl border border-pink-900 mb-8 shadow-lg shadow-pink-900/20">
-            <label className="block text-sm font-bold mb-2 text-pink-400">Gemini API Key (Google AI Studio)</label>
-            <p className="text-xs text-zinc-500 mb-3">会話とGemini音声に使用します。[Google AI Studio](https://aistudio.google.com/app/apikey)で取得してください。</p>
+            <label className="block text-sm font-bold mb-2 text-pink-400">Cloud Generative Language API Key (Gemini)</label>
+            <p className="text-xs text-zinc-500 mb-3">AIとの会話（テキスト生成）と Gemini 音声に使用します。Google AI Studio または Google Cloud Console で取得したキーを入力してください。</p>
             <input type="password" value={geminiApiKey} onChange={(e) => setGeminiApiKey(e.target.value)} placeholder="AIzaSy..." className="w-full bg-black border border-zinc-700 p-3 rounded-xl text-sm font-mono focus:border-pink-500 focus:outline-none mb-4" />
             
-            <label className="block text-sm font-bold mb-2 text-blue-400">Google Cloud API Key (Google Cloud Console)</label>
-            <p className="text-xs text-zinc-500 mb-3">高品質音声に使用します。[Google Cloud Console](https://console.cloud.google.com/)で取得してください。</p>
+            <label className="block text-sm font-bold mb-2 text-blue-400">Cloud Text-to-Speech API Key (Journey/Neural2)</label>
+            <p className="text-xs text-zinc-500 mb-3">Journey や Neural2 などの高品質音声に使用します。Google Cloud Console で「Cloud Text-to-Speech API」を有効化したキーを入力してください。</p>
             <div className="flex gap-2">
               <input type="password" value={gcpApiKey} onChange={(e) => setGcpApiKey(e.target.value)} placeholder="AIzaSy..." className="flex-1 bg-black border border-zinc-700 p-3 rounded-xl text-sm font-mono focus:border-blue-500 focus:outline-none" />
               <button 
