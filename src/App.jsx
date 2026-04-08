@@ -147,6 +147,8 @@ function WordGame() {
   const [aiResponseText, setAiResponseText] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [gameResult, setGameResult] = useState(null);
+  // API レート制限等の通知トースト
+  const [notification, setNotification] = useState(null);
 
   const recognitionRef = useRef(null);
   const currentAudioRef = useRef(null);
@@ -154,6 +156,15 @@ function WordGame() {
   const lastTranscriptRef = useRef("");
   // Gemini TTS クォータ超過フラグ（429検知後はセッション内でスキップ）
   const geminiTtsQuotaRef = useRef(false);
+  // 通知トーストの自動クローズ用タイマー
+  const notifyTimerRef = useRef(null);
+
+  // 通知を表示（5秒で自動クローズ）
+  const showNotification = (text, type = 'warning', durationMs = 5000) => {
+    if (notifyTimerRef.current) clearTimeout(notifyTimerRef.current);
+    setNotification({ type, text });
+    notifyTimerRef.current = setTimeout(() => setNotification(null), durationMs);
+  };
   const [currentEditingImageType, setCurrentEditingImageType] = useState(null);
   const isBusyRef = useRef(false);
   const stateRef = useRef({ arousal, displayKana, history, selectedCharKey, charConfigs, gameState });
@@ -305,6 +316,9 @@ function WordGame() {
       }
     } catch (e) {
       console.warn("GCP TTS failed:", e.message);
+      if (e.message?.includes('429') || e.message?.toLowerCase().includes('quota')) {
+        showNotification("Google Cloud 音声の上限に達しました。ブラウザ内蔵音声に切り替えます。", 'warning');
+      }
     }
     return false;
   };
@@ -361,8 +375,8 @@ function WordGame() {
       if (e.message?.includes('quota') || e.message?.includes('429')) {
         // クォータ超過：以降の試行を無駄にしないためセッション内でスキップ
         geminiTtsQuotaRef.current = true;
-        setAiResponseText(prev => prev); // 再レンダリングなしで GCP へ即切替
         console.warn("Gemini TTS quota exceeded. Switching to GCP TTS for this session.");
+        showNotification("Gemini 音声の1日上限に達しました。Google Cloud 音声に切り替えます。", 'info');
       } else {
         console.warn("Gemini TTS failed:", e.message);
       }
@@ -409,23 +423,32 @@ function WordGame() {
 
       // カタカナ→ひらがな変換
       const toHiragana = str => str.replace(/[\u30A1-\u30F6]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
-      // ひらがな・カタカナのみで構成されているか（漢字混じりの場合はクライアント検証をスキップ）
+      // ひらがな・カタカナのみで構成されているか（漢字混じりの場合は一部のクライアント検証をスキップ）
       const isKanaOnly = str => /^[\u3041-\u3096\u30A1-\u30F6ー]+$/.test(str);
+      const smallToLargeMap = { 'ぁ':'あ','ぃ':'い','ぅ':'う','ぇ':'え','ぉ':'お','ゃ':'や','ゅ':'ゆ','ょ':'よ','っ':'つ','ゎ':'わ' };
 
-      const normalizedInput = toHiragana(input.trim());
+      const trimmedInput = input.trim();
+      const normalizedInput = toHiragana(trimmedInput);
+
+      // (A) 既出単語チェック（漢字混じりでも完全一致で検出可能）
+      if (s.history.some(w => w === trimmedInput || toHiragana(w) === normalizedInput)) {
+        speak("それはもう使った言葉よ。別の言葉を選んでちょうだい。", "呆れたように", null, true);
+        setGameResult('lose'); setIsThinking(false); isBusyRef.current = false; return;
+      }
+
+      // (B) 末尾「ん」チェック（漢字混じりでも末尾がひらがな/カタカナ「ん/ン」なら検出）
+      const lastCharRaw = trimmedInput.slice(-1);
+      if (lastCharRaw === 'ん' || lastCharRaw === 'ン') {
+        speak("「ん」で終わったら負けよ。", "勝ち誇って", null, true);
+        setGameResult('lose'); setIsThinking(false); isBusyRef.current = false; return;
+      }
+
       if (isKanaOnly(normalizedInput)) {
-        // 開始文字チェック
-        const smallToLargeMap = { 'ぁ':'あ','ぃ':'い','ぅ':'う','ぇ':'え','ぉ':'お','ゃ':'や','ゅ':'ゆ','ょ':'よ','っ':'つ','ゎ':'わ' };
+        // 開始文字チェック（かな入力のみ）
         const firstChar = smallToLargeMap[normalizedInput.charAt(0)] || normalizedInput.charAt(0);
         if (firstChar !== s.displayKana) {
           speak(`「${s.displayKana}」から始まる言葉を言ってちょうだい。`, "呆れたように");
           setIsThinking(false); isBusyRef.current = false; return;
-        }
-        // 「ん」終わりチェック
-        const lastChar = normalizedInput.slice(-1);
-        if (lastChar === 'ん') {
-          speak("「ん」で終わったら負けよ。", "勝ち誇って", null, true);
-          setGameResult('lose'); setIsThinking(false); isBusyRef.current = false; return;
         }
       }
 
@@ -492,9 +515,60 @@ function WordGame() {
       }
       
       const result = JSON.parse(jsonText);
-      setIsThinking(false);
 
       const smallToLarge = { 'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お', 'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'っ': 'つ', 'ゎ': 'わ' };
+
+      // (C) AI返答の妥当性再検証
+      // (C-1) AIが既出単語を返していないか
+      if (result.word && s.history.includes(result.word)) {
+        console.warn("AI returned an already-used word:", result.word);
+        // AI側の敗北扱いにする
+        result.sister_lost = true;
+        result.feedback = `あっ……「${result.word}」って、もう出てたわね……私の負けよ。`;
+      }
+
+      // (C-2) かな入力時のみ、AI返答の読みが正しい先頭文字から始まっているか検証
+      const readingFirst = result.word_reading
+        ? (smallToLargeMap[toHiragana(result.word_reading).charAt(0)] || toHiragana(result.word_reading).charAt(0))
+        : null;
+      if (isKanaOnly(normalizedInput) && readingFirst) {
+        const playerLastRaw = normalizedInput.slice(-1);
+        const expectedStart = smallToLargeMap[playerLastRaw] || playerLastRaw;
+        if (readingFirst !== expectedStart && !result.player_lost && !result.sister_lost) {
+          console.warn("AI reading mismatch:", { expectedStart, readingFirst, word: result.word });
+          // 1回だけリトライ
+          const retrySys = `あなたは優秀なしりとりAIです。プレイヤーは「${input}」（読み末尾: ${expectedStart}）と言いました。必ず「${expectedStart}」から始まる言葉で、既出 [${s.history.join(', ')}] と重複せず、「ん」で終わらない語を選び、指定JSON形式で返してください。`;
+          try {
+            const retryRaw = await callGemini(`プレイヤー: 「${input}」。JSONで応答してください。`, retrySys);
+            if (retryRaw) {
+              let rt = retryRaw.replace(/```json|```/g, '').trim();
+              const fb = rt.indexOf('{'); const lb = rt.lastIndexOf('}');
+              if (fb !== -1 && lb !== -1) rt = rt.substring(fb, lb + 1);
+              const retryResult = JSON.parse(rt);
+              const retryFirst = retryResult.word_reading
+                ? (smallToLargeMap[toHiragana(retryResult.word_reading).charAt(0)] || toHiragana(retryResult.word_reading).charAt(0))
+                : null;
+              if (retryFirst === expectedStart && !s.history.includes(retryResult.word)) {
+                Object.assign(result, retryResult);
+              }
+            }
+          } catch (retryErr) {
+            console.warn("Retry failed:", retryErr.message);
+          }
+        }
+      }
+
+      // (C-3) AI返答の読み末尾が「ん」なら AI の負け
+      if (result.word_reading) {
+        const readingLast = toHiragana(result.word_reading).slice(-1);
+        if (readingLast === 'ん') {
+          result.sister_lost = true;
+          result.feedback = `あっ……「${result.word}」は「ん」で終わっちゃうわね……私の負けよ。`;
+        }
+      }
+
+      setIsThinking(false);
+
       const nextK = result.next_kana ? (smallToLarge[result.next_kana.slice(-1)] || result.next_kana.slice(-1)) : "あ";
       
       const baseInc = result.arousal_inc || 15;
@@ -515,12 +589,15 @@ function WordGame() {
       console.error(e);
       setIsThinking(false);
       isBusyRef.current = false;
-      if (e.message && e.message.includes('quota')) {
+      if (e.message && (e.message.includes('quota') || e.message.includes('429'))) {
         const retryMatch = e.message.match(/retry in (\d+)/);
         const waitSec = retryMatch ? Math.ceil(Number(retryMatch[1])) : 60;
-        setAiResponseText(`APIの制限に達しました。${waitSec}秒ほど待ってから、もう一度入力してください。`);
+        const msg = `Gemini API の制限に達しました。${waitSec}秒ほど待ってから、もう一度入力してください。`;
+        setAiResponseText(msg);
+        showNotification(msg, 'error', 8000);
       } else {
         setAiResponseText("エラーが発生しました: " + e.message);
+        showNotification("エラー: " + e.message, 'error', 6000);
       }
     }
   };
@@ -746,6 +823,13 @@ function WordGame() {
         .vignette-pulse {
           animation: pulse-vignette 4s ease-in-out infinite;
         }
+        @keyframes pulse-pink-glow {
+          0%, 100% { box-shadow: inset 0 0 120px rgba(236, 72, 153, 0.15); }
+          50% { box-shadow: inset 0 0 200px rgba(236, 72, 153, 0.35); }
+        }
+        .pink-glow-pulse {
+          animation: pulse-pink-glow 5s ease-in-out infinite;
+        }
         @keyframes heart-beat {
           0%, 100% { transform: scale(1); }
           20% { transform: scale(1.2); }
@@ -755,22 +839,84 @@ function WordGame() {
         .heart-active {
           animation: heart-beat var(--heart-speed, 1s) ease-in-out infinite;
         }
+        @keyframes breath-float {
+          0%   { transform: translateY(0) scale(0.9); opacity: 0; }
+          15%  { opacity: var(--breath-opacity, 0.7); }
+          80%  { opacity: var(--breath-opacity, 0.7); }
+          100% { transform: translateY(-70vh) scale(1.2); opacity: 0; }
+        }
+        .breath-float {
+          position: absolute;
+          bottom: 15%;
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: #fbcfe8;
+          text-shadow: 0 0 12px rgba(236, 72, 153, 0.7), 0 0 4px rgba(255,255,255,0.4);
+          pointer-events: none;
+          animation: breath-float var(--breath-speed, 6s) ease-in-out infinite;
+          animation-delay: var(--breath-delay, 0s);
+          will-change: transform, opacity;
+        }
+        @keyframes body-breath {
+          0%, 100% { transform: scale(1); }
+          50%      { transform: scale(1.015); }
+        }
+        .body-breath {
+          animation: body-breath var(--breath-cycle, 4s) ease-in-out infinite;
+        }
       `}</style>
 
-      {arousal > 40 && (
-        <div 
-          className="absolute inset-0 z-10 pointer-events-none vignette-pulse" 
-          style={{ 
-            opacity: Math.min(1, (arousal - 40) / 60),
-            animationDuration: `${Math.max(1, 4 - (arousal / 30))}s` 
-          }} 
+      {arousal > 30 && (
+        <div
+          className="absolute inset-0 z-10 pointer-events-none pink-glow-pulse"
+          style={{
+            opacity: Math.min(1, (arousal - 30) / 70),
+            animationDuration: `${Math.max(1.5, 5 - (arousal / 30))}s`
+          }}
         />
       )}
 
-      <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
+      {arousal > 40 && (
+        <div
+          className="absolute inset-0 z-10 pointer-events-none vignette-pulse"
+          style={{
+            opacity: Math.min(1, (arousal - 40) / 60),
+            animationDuration: `${Math.max(1, 4 - (arousal / 30))}s`
+          }}
+        />
+      )}
+
+      <div
+        className={`absolute inset-0 z-0 flex items-center justify-center pointer-events-none ${arousal > 60 ? 'body-breath' : ''}`}
+        style={{ '--breath-cycle': `${Math.max(1.8, 4 - (arousal / 40))}s` }}
+      >
         <img src={currentChar.images.unveiled} className="absolute inset-0 w-full h-full object-contain" style={{ filter: `blur(${blurValue}px) brightness(${0.4 + arousal * 0.006})` }} alt="unveiled" />
         <img src={currentChar.images.clothed} className="absolute inset-0 w-full h-full object-contain transition-opacity duration-1000" style={{ opacity: clothesOpacity, filter: 'brightness(0.6)' }} alt="clothed" />
       </div>
+
+      {/* 吐息テキストの浮遊演出（arousal > 50 で発動） */}
+      {arousal > 50 && (
+        <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden">
+          {(arousal > 80
+            ? ['はぁ…', 'んっ…', 'あぁ…', 'ふぅ…', 'ん…っ', 'はぁんっ', 'あ…']
+            : ['はぁ…', 'んっ…', 'あぁ…', 'ふぅ…']
+          ).map((txt, i, arr) => (
+            <span
+              key={`breath-${i}`}
+              className="breath-float"
+              style={{
+                left: `${10 + (i * 83) % 80}%`,
+                fontSize: `${1.2 + (i % 3) * 0.3}rem`,
+                '--breath-speed': `${Math.max(3, 7 - (arousal / 25))}s`,
+                '--breath-delay': `${(i * 0.9) % arr.length}s`,
+                '--breath-opacity': `${Math.min(0.85, (arousal - 50) / 50 + 0.3)}`,
+              }}
+            >
+              {txt}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="absolute top-0 left-0 right-0 z-50 p-4 flex justify-between items-start">
          <button onClick={() => {
@@ -794,6 +940,33 @@ function WordGame() {
          </div>
          <div className="w-8"></div>
       </div>
+
+      {/* API レート制限等の通知トースト */}
+      {notification && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[60] w-[90%] max-w-md">
+          <div
+            className={`flex items-start gap-3 px-4 py-3 rounded-xl backdrop-blur border shadow-2xl ${
+              notification.type === 'error'
+                ? 'bg-red-900/90 border-red-500/60 text-red-50'
+                : notification.type === 'info'
+                ? 'bg-sky-900/90 border-sky-500/60 text-sky-50'
+                : 'bg-amber-900/90 border-amber-500/60 text-amber-50'
+            }`}
+          >
+            <div className="flex-1 text-sm font-medium leading-snug">{notification.text}</div>
+            <button
+              onClick={() => {
+                if (notifyTimerRef.current) clearTimeout(notifyTimerRef.current);
+                setNotification(null);
+              }}
+              className="text-white/70 hover:text-white text-lg leading-none px-1"
+              aria-label="閉じる"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       {(gameState === 'ready' || gameState === 'gameover') && (
         <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
