@@ -53,5 +53,7 @@ jobs:
 
       - uses: peaceiris/actions-gh-pages@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          personal_token: ${{ secrets.DEPLOY_TOKEN }}
+          external_repository: ErotiqueLion/erotic-lion
+          publish_branch: gh-pages
           publish_dir: ./_deploy
