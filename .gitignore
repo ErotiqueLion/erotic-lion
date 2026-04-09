@@ -18,6 +18,10 @@ key.txt
 .env
 .env.*
 
+# 機密フォルダ（絶対にpushしないこと）
+Secret/
+Secret/**
+
 # ローカル専用ファイル
 ローカル実行.txt
 .claude/

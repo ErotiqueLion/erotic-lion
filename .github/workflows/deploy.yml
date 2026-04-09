@@ -24,7 +24,7 @@ jobs:
 
       - name: Prepare deploy directory
         run: |
-          mkdir -p _deploy/games/lion-heart
+          mkdir -p _deploy/games/erotic-word-chain
 
           # ポータル index.html を配置
           cp _portal/index.html _deploy/index.html
@@ -34,19 +34,19 @@ jobs:
             cp -r _portal/games/. _deploy/games/
           fi
 
-          # Vite ビルドを games/lion-heart/ に配置
-          cp -r dist/. _deploy/games/lion-heart/
+          # Vite ビルドを games/erotic-word-chain/ に配置
+          cp -r dist/. _deploy/games/erotic-word-chain/
 
-          # games/lion-heart.html → games/lion-heart/ へのリダイレクト
-          cat > _deploy/games/lion-heart.html << 'EOF'
+          # games/erotic-word-chain.html → games/erotic-word-chain/ へのリダイレクト
+          cat > _deploy/games/erotic-word-chain.html << 'EOF'
           <!DOCTYPE html>
           <html lang="ja">
           <head>
             <meta charset="UTF-8">
-            <meta http-equiv="refresh" content="0;url=./lion-heart/">
+            <meta http-equiv="refresh" content="0;url=./erotic-word-chain/">
           </head>
           <body>
-            <script>location.replace('./lion-heart/');</script>
+            <script>location.replace('./erotic-word-chain/');</script>
           </body>
           </html>
           EOF
