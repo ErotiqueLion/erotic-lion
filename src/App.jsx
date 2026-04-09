@@ -206,7 +206,23 @@ function WordGame() {
   const bgmRef = useRef(null);
   // プレイヤーが選択したカスタム曲のオブジェクトURL
   const bgmCustomUrlRef = useRef(null);
+  // iOS Safari の AudioContext（ユーザージェスチャーで解除後に非同期再生可）
+  const audioCtxRef = useRef(null);
   const [bgmFileName, setBgmFileName] = useState('デフォルト');
+
+  // AudioContext をユーザージェスチャー内で初期化・resume（iOS Safari 対応）
+  const ensureAudioContext = () => {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+    } catch (e) {
+      console.warn("AudioContext init failed:", e);
+    }
+  };
 
   // 通知を表示（5秒で自動クローズ）
   const showNotification = (text, type = 'warning', durationMs = 5000) => {
@@ -436,20 +452,40 @@ function WordGame() {
         // テロップと次カナは音声成否に関わらず即時表示（iOS で onplay が発火しない場合も対応）
         setAiResponseText(text);
         if (nextKanaUpdate) setDisplayKana(nextKanaUpdate);
-        // Blob URL は iOS で非同期再生がブロックされるため data URI に変換（全環境共通・音質変化なし）
-        const dataUri = await new Promise(resolve => {
-          const r = new FileReader();
-          r.onload = e => resolve(e.target.result);
-          r.readAsDataURL(pcmToWav(pcm));
-        });
-        const audio = new Audio(dataUri);
-        currentAudioRef.current = audio;
-        audio.onended = () => {
-          setIsSpeaking(false); isBusyRef.current = false;
-          if (isGameOverCall) setGameState('gameover');
-        };
-        audio.play();
-        return true;
+
+        // PCM (base64, 24kHz, 16bit little-endian mono) → Float32 → AudioContext
+        // iOS Safari では new Audio().play() が非同期コンテキストでブロックされるため
+        // ユーザージェスチャーで解除済みの AudioContext を使って再生する
+        try {
+          const pcmBinary = atob(pcm);
+          const pcmBytes = new Uint8Array(pcmBinary.length);
+          for (let i = 0; i < pcmBinary.length; i++) pcmBytes[i] = pcmBinary.charCodeAt(i);
+          const float32 = new Float32Array(pcmBytes.length / 2);
+          for (let i = 0; i < float32.length; i++) {
+            const lo = pcmBytes[i * 2], hi = pcmBytes[i * 2 + 1];
+            const s = (hi << 8) | lo;
+            float32[i] = (s >= 0x8000 ? s - 0x10000 : s) / 32768;
+          }
+          // 既存の AudioContext を使い回す（suspended なら resume）
+          const ctx = audioCtxRef.current || new (window.AudioContext || window.webkitAudioContext)();
+          audioCtxRef.current = ctx;
+          if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
+          const buffer = ctx.createBuffer(1, float32.length, 24000);
+          buffer.copyToChannel(float32, 0);
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(ctx.destination);
+          source.onended = () => {
+            setIsSpeaking(false); isBusyRef.current = false;
+            if (isGameOverCall) setGameState('gameover');
+          };
+          source.start(0);
+          // currentAudioRef に pause 互換ラッパーをセット（ホームボタンで停止できるように）
+          currentAudioRef.current = { pause: () => { try { source.stop(); } catch (e) {} } };
+          return true;
+        } catch (audioErr) {
+          console.warn("AudioContext playback failed:", audioErr);
+        }
       }
     } catch (e) {
       if (e.message?.includes('quota') || e.message?.includes('429')) {
@@ -1174,9 +1210,10 @@ function WordGame() {
       {(gameState === 'ready' || gameState === 'gameover') && (
         <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
           <h2 className="text-3xl sm:text-4xl font-black mb-8 text-center px-4">{gameState === 'gameover' ? (gameResult === 'win' ? '逝っちゃた、貴方の勝ちよ！' : 'GAME OVER') : 'READY?'}</h2>
-          <button onClick={() => { 
+          <button onClick={() => {
+            ensureAudioContext(); // iOS Safari: ユーザージェスチャー内で AudioContext を解除
             setAiResponseText(''); setPlayerInputText('');
-            setGameState('playing'); setArousal(0); setHistory([]); setDisplayKana(startKanaSetting); 
+            setGameState('playing'); setArousal(0); setHistory([]); setDisplayKana(startKanaSetting);
             speak(`始めましょう。最初は「${startKanaSetting}」からよ。`, "妖艶に");
           }} className="px-12 py-4 bg-pink-600 rounded-full font-bold text-lg shadow-2xl hover:scale-105 transition-transform">
             {gameState === 'gameover' ? 'もう一度' : '遊びましょ♡'}
@@ -1227,6 +1264,7 @@ function WordGame() {
                 <button
                   onClick={() => {
                     if (inputText.trim() && !isSpeaking && !isThinking) {
+                      ensureAudioContext(); // iOS Safari: テキスト送信ボタンでも AudioContext を解除
                       setAiResponseText('');
                       handlePlayerInput(inputText.trim());
                       setInputText("");
@@ -1253,6 +1291,7 @@ function WordGame() {
                     if (isListening) {
                       recognitionRef.current?.stop();
                     } else {
+                      ensureAudioContext(); // iOS Safari: マイクボタンもユーザージェスチャーで AudioContext を解除
                       setAiResponseText(''); setPlayerInputText('');
                       // iOS Safari は同一インスタンスの再起動が不安定なため毎回新規作成
                       initRecognition();
