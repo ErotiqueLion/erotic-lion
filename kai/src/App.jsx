@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, Activity, Settings, Heart, Home, Upload, HelpCircle, Lock, Unlock, ChevronLeft, Keyboard } from 'lucide-react';
-import Kuroshiro from 'kuroshiro';
-import KuromojiAnalyzer from 'kuroshiro-analyzer-kuromoji';
+// kuromoji は index.html の CDN スクリプトで window.kuromoji として読み込まれる
 
 // --- Firebase Setup ---
 import { initializeApp } from 'firebase/app';
@@ -213,27 +212,29 @@ function WordGame() {
   const kuroshiroRef = useRef(null);
   const [kuroshiroReady, setKuroshiroReady] = useState(false);
 
-  // kuroshiro 初期化（アプリ起動時に1回だけ実行）
+  // kuromoji 初期化（index.html の CDN スクリプトで window.kuromoji が利用可能）
   useEffect(() => {
-    const initKuroshiro = async () => {
-      try {
-        const k = new Kuroshiro();
-        // public/dict/ に配置した kuromoji 辞書を参照
-        await k.init(new KuromojiAnalyzer({ dictPath: import.meta.env.BASE_URL + 'dict/' }));
-        kuroshiroRef.current = k;
+    const initKuromoji = () => {
+      if (!window.kuromoji) { console.warn('window.kuromoji が見つかりません'); return; }
+      window.kuromoji.builder({ dicPath: import.meta.env.BASE_URL + 'dict/' }).build((err, tokenizer) => {
+        if (err) { console.warn('kuromoji 初期化失敗:', err); return; }
+        kuroshiroRef.current = tokenizer;
         setKuroshiroReady(true);
-      } catch (e) {
-        console.warn('kuroshiro 初期化失敗:', e);
-      }
+      });
     };
-    initKuroshiro();
+    // CDN スクリプトのロード完了を待つ
+    if (window.kuromoji) { initKuromoji(); }
+    else { window.addEventListener('load', initKuromoji); }
   }, []);
 
-  // テキストをひらがな読みに変換（kuroshiro が未準備な場合は null を返す）
+  // テキストをひらがな読みに変換（kuromoji tokenizer 使用）
   const getReading = async (text) => {
     if (!kuroshiroRef.current) return null;
     try {
-      return await kuroshiroRef.current.convert(text, { to: 'hiragana' });
+      const tokens = kuroshiroRef.current.tokenize(text);
+      // 各トークンの reading（カタカナ）を結合してひらがなに変換
+      const katakana = tokens.map(t => t.reading || t.surface_form).join('');
+      return katakana.replace(/[\u30A1-\u30F6]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
     } catch (e) {
       console.warn('getReading エラー:', e);
       return null;
