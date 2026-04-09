@@ -375,13 +375,13 @@ function WordGame() {
         const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
         currentAudioRef.current = audio;
         audio.onplay = () => { setAiResponseText(text); if (nextKanaUpdate) setDisplayKana(nextKanaUpdate); };
-        audio.playbackRate = 1.0;
+        audio.playbackRate = 1.0; 
         if (stateRef.current.arousal > 70) audio.playbackRate = 1.05;
-        // 再生終了・エラー時に必ずフラグを解除（モバイルで固まる防止）
-        const releaseGcp = () => { setIsSpeaking(false); isBusyRef.current = false; if (isGameOverCall) setGameState('gameover'); };
-        audio.onended = releaseGcp;
-        audio.onerror = releaseGcp;
-        audio.play().catch(releaseGcp);
+        audio.onended = () => {
+          setIsSpeaking(false); isBusyRef.current = false;
+          if (isGameOverCall) setGameState('gameover');
+        };
+        audio.play();
         return true;
       }
     } catch (e) {
@@ -434,11 +434,11 @@ function WordGame() {
         const audio = new Audio(URL.createObjectURL(pcmToWav(pcm)));
         currentAudioRef.current = audio;
         audio.onplay = () => { setAiResponseText(text); if (nextKanaUpdate) setDisplayKana(nextKanaUpdate); };
-        // 再生終了・エラー時に必ずフラグを解除（モバイルで固まる防止）
-        const releaseGemini = () => { setIsSpeaking(false); isBusyRef.current = false; if (isGameOverCall) setGameState('gameover'); };
-        audio.onended = releaseGemini;
-        audio.onerror = releaseGemini;
-        audio.play().catch(releaseGemini);
+        audio.onended = () => {
+          setIsSpeaking(false); isBusyRef.current = false;
+          if (isGameOverCall) setGameState('gameover');
+        };
+        audio.play();
         return true;
       }
     } catch (e) {
@@ -471,10 +471,6 @@ function WordGame() {
       if (success) return;
     }
     
-    // 全エンジン失敗時：テキスト表示だけ更新してロックを解除
-    setAiResponseText(text);
-    if (nextKanaUpdate) setDisplayKana(nextKanaUpdate);
-    if (isGameOverCall) setGameState('gameover');
     setIsSpeaking(false); isBusyRef.current = false;
   };
 
