@@ -148,11 +148,21 @@ function WordGame() {
     localStorage.setItem('erotic_wordchain_bgm_volume', bgmVolume.toString());
   }, [bgmVolume]);
 
-  // BGM: playing 中は再生、それ以外はフェードアウトして停止
+  const [useTextInput, setUseTextInput] = useState(false);
+  const [inputText, setInputText] = useState("");
+  const [isListening, setIsListening] = useState(false);
+
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [playerInputText, setPlayerInputText] = useState('');
+  const [aiResponseText, setAiResponseText] = useState('');
+  const [isThinking, setIsThinking] = useState(false);
+
+  // BGM: AI応答待ち（isThinking）の間のみ再生、それ以外はフェードアウトして停止
   useEffect(() => {
-    if (gameState === 'playing') {
+    if (gameState === 'playing' && isThinking) {
       if (!bgmRef.current) {
-        bgmRef.current = new Audio('/bgm.mp3');
+        // BASE_URL を使って正しいパスに解決する（GitHub Pages 対応）
+        bgmRef.current = new Audio(import.meta.env.BASE_URL + 'bgm.mp3');
         bgmRef.current.loop = true;
         bgmRef.current.volume = 0;
       }
@@ -165,6 +175,7 @@ function WordGame() {
         if (bgmRef.current) bgmRef.current.volume = vol;
         if (vol >= targetVol) clearInterval(fadeIn);
       }, 100);
+      return () => clearInterval(fadeIn);
     } else {
       if (!bgmRef.current) return;
       // フェードアウト（→ 0、約1秒）して停止
@@ -177,23 +188,9 @@ function WordGame() {
           if (bgmRef.current) { bgmRef.current.pause(); bgmRef.current.currentTime = 0; }
         }
       }, 100);
+      return () => clearInterval(fadeOut);
     }
-  }, [gameState, bgmVolume]);
-
-  // arousal が上がるほど BGM 音量も上昇（bgmVolume → bgmVolume*1.75）
-  useEffect(() => {
-    if (!bgmRef.current || gameState !== 'playing') return;
-    bgmRef.current.volume = Math.min(1, bgmVolume + (arousal / 100) * bgmVolume * 0.75);
-  }, [arousal, gameState, bgmVolume]);
-
-  const [useTextInput, setUseTextInput] = useState(false);
-  const [inputText, setInputText] = useState("");
-  const [isListening, setIsListening] = useState(false);
-  
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [playerInputText, setPlayerInputText] = useState('');
-  const [aiResponseText, setAiResponseText] = useState('');
-  const [isThinking, setIsThinking] = useState(false);
+  }, [isThinking, gameState, bgmVolume]);
   const [gameResult, setGameResult] = useState(null);
   // API レート制限等の通知トースト
   const [notification, setNotification] = useState(null);
@@ -518,29 +515,37 @@ function WordGame() {
         setGameResult('lose'); setIsThinking(false); isBusyRef.current = false; return;
       }
 
-      // (B) kuroshiro で読みを取得（漢字含む場合も対応）
+      // (B) kuromoji で読みを取得（漢字含む場合も対応）
       let playerReading = normalizedInput;
       if (!isKanaOnly(normalizedInput) && kuroshiroReady) {
         const kuroReading = await getReading(trimmedInput);
-        if (kuroReading) playerReading = toHiragana(kuroReading);
+        // kuromoji が読みを返し、かつ結果がひらがな/カタカナのみの場合に採用
+        if (kuroReading && isKanaOnly(kuroReading)) playerReading = toHiragana(kuroReading);
       }
 
-      // (C) 末尾「ん」チェック（kuroshiro 読みで判定）
+      // playerReading がひらがな/カタカナのみかどうか（漢字混じりなら AI に判定を任せる）
+      const playerReadingIsKana = isKanaOnly(playerReading);
+
+      // (C) 末尾「ん」チェック（読みがかな確定の場合のみクライアント側で判定）
       const playerLastChar = playerReading.slice(-1);
-      if (playerLastChar === 'ん') {
+      if (playerReadingIsKana && playerLastChar === 'ん') {
         speak("「ん」で終わったら負けよ。", "勝ち誇って", null, true);
         setGameResult('lose'); setIsThinking(false); isBusyRef.current = false; return;
       }
 
-      // (D) 開始文字チェック（kuroshiro 対応により漢字入力でも常に実施）
-      const firstChar = smallToLargeMap[playerReading.charAt(0)] || playerReading.charAt(0);
-      if (firstChar !== s.displayKana) {
-        speak(`「${s.displayKana}」から始まる言葉を言ってちょうだい。`, "呆れたように");
-        setIsThinking(false); isBusyRef.current = false; return;
+      // (D) 開始文字チェック（読みがかな確定の場合のみ。未知語・kuromoji 未準備は AI に任せる）
+      if (playerReadingIsKana) {
+        const firstChar = smallToLargeMap[playerReading.charAt(0)] || playerReading.charAt(0);
+        if (firstChar !== s.displayKana) {
+          speak(`「${s.displayKana}」から始まる言葉を言ってちょうだい。`, "呆れたように");
+          setIsThinking(false); isBusyRef.current = false; return;
+        }
       }
 
-      // 次の開始文字（プレイヤー読みの末尾から）
-      const expectedNextStart = smallToLargeMap[playerLastChar] || playerLastChar;
+      // 次の開始文字（読みが確定している場合のみ計算。不明な場合は null で AI に任せる）
+      const expectedNextStart = playerReadingIsKana
+        ? (smallToLargeMap[playerLastChar] || playerLastChar)
+        : null;
 
       const systemText = getSystemPrompt(s.charConfigs[s.selectedCharKey], s.arousal, s.displayKana, s.history);
 
@@ -582,7 +587,11 @@ function WordGame() {
       const charContext = `[NPC設定: ${s.charConfigs[s.selectedCharKey].prompt} 現在の欲情度: ${s.arousal}%]\n`;
 
       // 1回目の試行（kuroshiro で確定した次の開始文字をプロンプトに渡す）
-      let rawText = await callGemini(`${charContext}プレイヤーは「${input}」と言いました（今回の開始文字は「${s.displayKana}」、プレイヤー単語の読み末尾は「${expectedNextStart}」）。プレイヤーの単語が適切か判定し、適切であれば「${expectedNextStart}」から始まる言葉で答えてください。`);
+      // expectedNextStart が null の場合（読みが不明）は AI に読み判定ごと委ねる
+      const playerPrompt = expectedNextStart
+        ? `${charContext}プレイヤーは「${input}」と言いました（今回の開始文字は「${s.displayKana}」、プレイヤー単語の読み末尾は「${expectedNextStart}」）。プレイヤーの単語が適切か判定し、適切であれば「${expectedNextStart}」から始まる言葉で答えてください。`
+        : `${charContext}プレイヤーは「${input}」と言いました（今回の開始文字は「${s.displayKana}」）。プレイヤーの単語の読みを確認し、「${s.displayKana}」から始まるか適切か判定してください。適切であれば、その読みの末尾の文字から始まる言葉で答えてください。`;
+      let rawText = await callGemini(playerPrompt);
 
       if (!rawText) {
         console.log("Retrying with safe system prompt...");
@@ -627,7 +636,8 @@ function WordGame() {
       const readingFirst = aiWordReading
         ? (smallToLargeMap[aiWordReading.charAt(0)] || aiWordReading.charAt(0))
         : null;
-      if (readingFirst && readingFirst !== expectedNextStart && !result.player_lost && !result.sister_lost) {
+      // expectedNextStart が null（読み不明）の場合は AI のしりとり照合をスキップ
+      if (expectedNextStart && readingFirst && readingFirst !== expectedNextStart && !result.player_lost && !result.sister_lost) {
         console.warn("AI reading mismatch:", { expectedNextStart, readingFirst, word: result.word });
         // 1回だけリトライ
         const retrySys = `あなたは優秀なしりとりAIです。プレイヤーは「${input}」（読み末尾: ${expectedNextStart}）と言いました。必ず「${expectedNextStart}」から始まる言葉で、既出 [${s.history.join(', ')}] と重複せず、「ん」で終わらない語を選び、指定JSON形式で返してください。`;

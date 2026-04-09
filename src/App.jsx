@@ -147,11 +147,21 @@ function WordGame() {
     localStorage.setItem('erotic_wordchain_bgm_volume', bgmVolume.toString());
   }, [bgmVolume]);
 
-  // BGM: playing 中は再生、それ以外はフェードアウトして停止
+  const [useTextInput, setUseTextInput] = useState(false);
+  const [inputText, setInputText] = useState("");
+  const [isListening, setIsListening] = useState(false);
+
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [playerInputText, setPlayerInputText] = useState('');
+  const [aiResponseText, setAiResponseText] = useState('');
+  const [isThinking, setIsThinking] = useState(false);
+
+  // BGM: AI応答待ち（isThinking）の間のみ再生、それ以外はフェードアウトして停止
   useEffect(() => {
-    if (gameState === 'playing') {
+    if (gameState === 'playing' && isThinking) {
       if (!bgmRef.current) {
-        bgmRef.current = new Audio('/bgm.mp3');
+        // BASE_URL を使って正しいパスに解決する（GitHub Pages 対応）
+        bgmRef.current = new Audio(import.meta.env.BASE_URL + 'bgm.mp3');
         bgmRef.current.loop = true;
         bgmRef.current.volume = 0;
       }
@@ -164,6 +174,7 @@ function WordGame() {
         if (bgmRef.current) bgmRef.current.volume = vol;
         if (vol >= targetVol) clearInterval(fadeIn);
       }, 100);
+      return () => clearInterval(fadeIn);
     } else {
       if (!bgmRef.current) return;
       // フェードアウト（→ 0、約1秒）して停止
@@ -176,23 +187,9 @@ function WordGame() {
           if (bgmRef.current) { bgmRef.current.pause(); bgmRef.current.currentTime = 0; }
         }
       }, 100);
+      return () => clearInterval(fadeOut);
     }
-  }, [gameState, bgmVolume]);
-
-  // arousal が上がるほど BGM 音量も上昇（bgmVolume → bgmVolume*1.75）
-  useEffect(() => {
-    if (!bgmRef.current || gameState !== 'playing') return;
-    bgmRef.current.volume = Math.min(1, bgmVolume + (arousal / 100) * bgmVolume * 0.75);
-  }, [arousal, gameState, bgmVolume]);
-
-  const [useTextInput, setUseTextInput] = useState(false);
-  const [inputText, setInputText] = useState("");
-  const [isListening, setIsListening] = useState(false);
-  
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [playerInputText, setPlayerInputText] = useState('');
-  const [aiResponseText, setAiResponseText] = useState('');
-  const [isThinking, setIsThinking] = useState(false);
+  }, [isThinking, gameState, bgmVolume]);
   const [gameResult, setGameResult] = useState(null);
   // API レート制限等の通知トースト
   const [notification, setNotification] = useState(null);
