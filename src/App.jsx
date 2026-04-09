@@ -703,6 +703,10 @@ function WordGame() {
             handleStartNewGame();
           }} className="py-4 bg-pink-600 rounded-full text-white font-bold shadow-xl shadow-pink-600/20 hover:bg-pink-500 transition-all">いらっしゃい♡</button>
         </div>
+        {/* ポータルへ戻るリンク */}
+        <a href="../../" className="mt-8 flex items-center gap-2 text-zinc-600 hover:text-zinc-400 transition-colors text-xs tracking-widest">
+          <Home size={14} />ポータルへ戻る
+        </a>
       </div>
     );
   }
