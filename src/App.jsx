@@ -745,7 +745,7 @@ function WordGame() {
           <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 mb-3 space-y-3">
             <p className="text-xs text-zinc-500 leading-relaxed">自分のGoogle APIキーを入力してください。ブラウザ内にのみ保存され、外部送信はされません。取得方法は「遊び方」画面を参照。</p>
             <div>
-              <label className="block text-xs font-bold text-pink-400 mb-1">Gemini API キー <span className="text-zinc-600 font-normal">（必須 / console.cloud.google.com）</span></label>
+              <label className="block text-xs font-bold text-pink-400 mb-1">① Cloud Generative Language API キー <span className="text-zinc-600 font-normal">（AI会話・音声 / 必須）</span></label>
               <div className="flex gap-2">
                 <input type="password" value={geminiApiKey} onChange={(e) => setGeminiApiKey(e.target.value)} placeholder="AIzaSy..." className="flex-1 bg-black border border-zinc-700 p-2.5 rounded-xl text-sm font-mono focus:border-pink-500 focus:outline-none" />
                 <button
@@ -768,7 +768,7 @@ function WordGame() {
               </div>
             </div>
             <div>
-              <label className="block text-xs font-bold text-blue-400 mb-1">GCP TTS キー <span className="text-zinc-600 font-normal">（任意 / console.cloud.google.com）</span></label>
+              <label className="block text-xs font-bold text-blue-400 mb-1">② Cloud Text-to-Speech API キー <span className="text-zinc-600 font-normal">（高品質音声 / 任意）</span></label>
               <div className="flex gap-2">
                 <input type="password" value={gcpApiKey} onChange={(e) => setGcpApiKey(e.target.value)} placeholder="AIzaSy..." className="flex-1 bg-black border border-zinc-700 p-2.5 rounded-xl text-sm font-mono focus:border-blue-500 focus:outline-none" />
                 <button
@@ -860,7 +860,7 @@ function WordGame() {
 
             <div className="space-y-6">
               <div>
-                <h3 className="text-sm font-bold text-pink-400 mb-1">① Gemini API キー（必須）</h3>
+                <h3 className="text-sm font-bold text-pink-400 mb-1">① Cloud Generative Language API キー（必須）</h3>
                 <p className="text-xs text-zinc-400 mb-2">AIとの会話・音声生成に使用します。無料枠あり。</p>
                 <ol className="text-xs text-zinc-500 space-y-1 list-decimal pl-4">
                   <li><span className="text-zinc-300">console.cloud.google.com</span> にアクセス</li>
@@ -872,7 +872,7 @@ function WordGame() {
               </div>
 
               <div>
-                <h3 className="text-sm font-bold text-blue-400 mb-1">② GCP Cloud TTS キー（推奨）</h3>
+                <h3 className="text-sm font-bold text-blue-400 mb-1">② Cloud Text-to-Speech API キー（推奨）</h3>
                 <p className="text-xs text-zinc-400 mb-2">より高品質な音声に使用します。未設定でも遊べます。</p>
                 <ol className="text-xs text-zinc-500 space-y-1 list-decimal pl-4">
                   <li><span className="text-zinc-300">console.cloud.google.com</span> にアクセス</li>
