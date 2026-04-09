@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, Activity, Settings, Heart, Home, Upload, HelpCircle, Lock, Unlock, ChevronLeft } from 'lucide-react';
+import { Mic, Activity, Settings, Heart, Home, Upload, HelpCircle, Lock, Unlock, ChevronLeft, Keyboard } from 'lucide-react';
 
 // --- Firebase Setup ---
 import { initializeApp } from 'firebase/app';
@@ -95,6 +95,10 @@ Respond ONLY in the following JSON format (no markdown, no extra text):
   "sister_lost": false,
   "tts_instruction": "acting direction e.g. 'breathless', 'trembling voice', 'whispering'"
 }
+[arousal_inc Guide]
+- Erotic / sensual word: +15 to +30
+- Neutral / everyday word: -5 to -10 (NPC gets bored and cools down)
+- Very erotic / climactic word: +30 to +50
 [Style Guide at Arousal > 70%]
 Use stuttering (e.g. 'あ、あぁ...') and more frequent breath marks (・・・).
 [Style Guide for TTS Instruction]
@@ -121,6 +125,7 @@ function WordGame() {
   const [gcpApiKey, setGcpApiKey] = useState(() => localStorage.getItem('erotic_wordchain_gcp_apikey') || '');
   const [ttsPriority, setTtsPriority] = useState(() => localStorage.getItem('erotic_wordchain_tts_priority') || 'gemini');
   const [arousalMultiplier, setArousalMultiplier] = useState(() => Number(localStorage.getItem('erotic_wordchain_multiplier')) || 1.0);
+  const [bgmVolume, setBgmVolume] = useState(() => Number(localStorage.getItem('erotic_wordchain_bgm_volume') ?? 0.25));
 
   useEffect(() => {
     localStorage.setItem('erotic_wordchain_apikey', geminiApiKey);
@@ -137,6 +142,48 @@ function WordGame() {
   useEffect(() => {
     localStorage.setItem('erotic_wordchain_multiplier', arousalMultiplier.toString());
   }, [arousalMultiplier]);
+
+  useEffect(() => {
+    localStorage.setItem('erotic_wordchain_bgm_volume', bgmVolume.toString());
+  }, [bgmVolume]);
+
+  // BGM: playing 中は再生、それ以外はフェードアウトして停止
+  useEffect(() => {
+    if (gameState === 'playing') {
+      if (!bgmRef.current) {
+        bgmRef.current = new Audio('/bgm.mp3');
+        bgmRef.current.loop = true;
+        bgmRef.current.volume = 0;
+      }
+      bgmRef.current.play().catch(() => {});
+      // フェードイン（0 → bgmVolume、約2秒）
+      const targetVol = bgmVolume;
+      let vol = bgmRef.current.volume;
+      const fadeIn = setInterval(() => {
+        vol = Math.min(targetVol, vol + 0.02);
+        if (bgmRef.current) bgmRef.current.volume = vol;
+        if (vol >= targetVol) clearInterval(fadeIn);
+      }, 100);
+    } else {
+      if (!bgmRef.current) return;
+      // フェードアウト（→ 0、約1秒）して停止
+      let vol = bgmRef.current.volume;
+      const fadeOut = setInterval(() => {
+        vol = Math.max(0, vol - 0.04);
+        if (bgmRef.current) bgmRef.current.volume = vol;
+        if (vol <= 0) {
+          clearInterval(fadeOut);
+          if (bgmRef.current) { bgmRef.current.pause(); bgmRef.current.currentTime = 0; }
+        }
+      }, 100);
+    }
+  }, [gameState, bgmVolume]);
+
+  // arousal が上がるほど BGM 音量も上昇（bgmVolume → bgmVolume*1.75）
+  useEffect(() => {
+    if (!bgmRef.current || gameState !== 'playing') return;
+    bgmRef.current.volume = Math.min(1, bgmVolume + (arousal / 100) * bgmVolume * 0.75);
+  }, [arousal, gameState, bgmVolume]);
 
   const [useTextInput, setUseTextInput] = useState(false);
   const [inputText, setInputText] = useState("");
@@ -158,6 +205,8 @@ function WordGame() {
   const geminiTtsQuotaRef = useRef(false);
   // 通知トーストの自動クローズ用タイマー
   const notifyTimerRef = useRef(null);
+  // BGM 再生用
+  const bgmRef = useRef(null);
 
   // 通知を表示（5秒で自動クローズ）
   const showNotification = (text, type = 'warning', durationMs = 5000) => {
@@ -652,7 +701,7 @@ function WordGame() {
           <button onClick={() => {
             if (!geminiApiKey) { setGameState('settings'); return; }
             handleStartNewGame();
-          }} className="py-4 bg-pink-600 rounded-full text-white font-bold shadow-xl shadow-pink-600/20 hover:bg-pink-500 transition-all">開始する</button>
+          }} className="py-4 bg-pink-600 rounded-full text-white font-bold shadow-xl shadow-pink-600/20 hover:bg-pink-500 transition-all">いらっしゃい♡</button>
         </div>
       </div>
     );
@@ -684,107 +733,106 @@ function WordGame() {
   if (gameState === 'settings') {
     const char = charConfigs[editingCharKey];
     return (
-      <div className="fixed inset-0 bg-zinc-950 p-6 overflow-y-auto z-[100] text-zinc-300">
-        <div className="max-w-2xl mx-auto pb-12">
-          <div className="flex items-center justify-between mb-8">
-             <button onClick={() => setGameState('intro')} className="p-2 flex items-center gap-1"><ChevronLeft size={20} /> 戻る</button>
-             <h2 className="text-xl font-bold text-white">詳細設定</h2>
-             <div className="w-10" />
+      <div className="fixed inset-0 bg-zinc-950 px-4 py-4 overflow-y-auto z-[100] text-zinc-300">
+        <div className="max-w-2xl mx-auto pb-8">
+          <div className="flex items-center justify-between mb-4">
+            <button onClick={() => setGameState('intro')} className="p-2 flex items-center gap-1"><ChevronLeft size={20} /> 戻る</button>
+            <h2 className="text-lg font-bold text-white">設定</h2>
+            <div className="w-10" />
           </div>
-          <div className="bg-zinc-900 p-6 rounded-2xl border border-pink-900 mb-8 shadow-lg shadow-pink-900/20">
-            <label className="block text-sm font-bold mb-2 text-pink-400">Cloud Generative Language API Key (Gemini)</label>
-            <p className="text-xs text-zinc-500 mb-3">AIとの会話（テキスト生成）と Gemini 音声に使用します。Google Cloud Console で「Cloud Generative Language API」を有効化したキーを入力してください。</p>
-            <div className="flex gap-2">
-              <input type="password" value={geminiApiKey} onChange={(e) => setGeminiApiKey(e.target.value)} placeholder="AIzaSy..." className="flex-1 bg-black border border-zinc-700 p-3 rounded-xl text-sm font-mono focus:border-pink-500 focus:outline-none" />
-              <button 
-                onClick={async () => {
-                  try {
-                    setIsThinking(true);
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ contents: [{ parts: [{ text: "Hello, reply 'OK' if you can hear me." }] }] })
-                    });
-                    const data = await res.json();
-                    setIsThinking(false);
-                    if (data.candidates?.[0]?.content?.parts?.[0]?.text) alert("Gemini API接続成功！");
-                    else throw new Error(data.error?.message || "応答がありませんでした");
-                  } catch (e) { alert("接続エラー: " + e.message); setIsThinking(false); }
-                }}
-                disabled={!geminiApiKey || isThinking}
-                className="px-4 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
-              >テスト</button>
+
+          {/* APIキー（2つまとめて） */}
+          <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 mb-3 space-y-3">
+            <p className="text-xs text-zinc-500 leading-relaxed">自分のGoogle APIキーを入力してください。ブラウザ内にのみ保存され、外部送信はされません。取得方法は「遊び方」画面を参照。</p>
+            <div>
+              <label className="block text-xs font-bold text-pink-400 mb-1">Gemini API キー <span className="text-zinc-600 font-normal">（必須 / console.cloud.google.com）</span></label>
+              <div className="flex gap-2">
+                <input type="password" value={geminiApiKey} onChange={(e) => setGeminiApiKey(e.target.value)} placeholder="AIzaSy..." className="flex-1 bg-black border border-zinc-700 p-2.5 rounded-xl text-sm font-mono focus:border-pink-500 focus:outline-none" />
+                <button
+                  onClick={async () => {
+                    try {
+                      setIsThinking(true);
+                      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: "Reply OK." }] }] })
+                      });
+                      const data = await res.json();
+                      setIsThinking(false);
+                      if (data.candidates?.[0]?.content?.parts?.[0]?.text) alert("Gemini 接続成功！");
+                      else throw new Error(data.error?.message || "応答なし");
+                    } catch (e) { alert("エラー: " + e.message); setIsThinking(false); }
+                  }}
+                  disabled={!geminiApiKey || isThinking}
+                  className="px-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
+                >テスト</button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-blue-400 mb-1">GCP TTS キー <span className="text-zinc-600 font-normal">（任意 / console.cloud.google.com）</span></label>
+              <div className="flex gap-2">
+                <input type="password" value={gcpApiKey} onChange={(e) => setGcpApiKey(e.target.value)} placeholder="AIzaSy..." className="flex-1 bg-black border border-zinc-700 p-2.5 rounded-xl text-sm font-mono focus:border-blue-500 focus:outline-none" />
+                <button
+                  onClick={() => speak("こんにちは、正常に動作しているわ。", "優しく")}
+                  disabled={!gcpApiKey || isSpeaking}
+                  className="px-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
+                >テスト</button>
+              </div>
             </div>
           </div>
-          <div className="bg-zinc-900 p-6 rounded-2xl border border-blue-900 mb-8 shadow-lg shadow-blue-900/20">
-            <label className="block text-sm font-bold mb-2 text-blue-400">Cloud Text-to-Speech API Key (Journey/Neural2)</label>
-            <p className="text-xs text-zinc-500 mb-3">Journey や Neural2 などの高品質音声に使用します。GCPで「Cloud Text-to-Speech API」を有効化したキーを入力してください。</p>
+
+          {/* 音声エンジン */}
+          <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 mb-3">
+            <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">音声エンジン</label>
             <div className="flex gap-2">
-              <input type="password" value={gcpApiKey} onChange={(e) => setGcpApiKey(e.target.value)} placeholder="AIzaSy..." className="flex-1 bg-black border border-zinc-700 p-3 rounded-xl text-sm font-mono focus:border-blue-500 focus:outline-none" />
-              <button 
-                onClick={() => speak("こんにちは、正常に動作しているわ。", "優しく")} 
-                disabled={!gcpApiKey || isSpeaking}
-                className="px-4 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
-              >テスト</button>
-            </div>
-          </div>
-          <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 mb-8">
-            <label className="block text-sm font-bold mb-4 uppercase tracking-widest text-xs text-zinc-500">優先する音声合成エンジン</label>
-            <div className="flex gap-2">
-              {[
-                { id: 'gemini', label: 'Gemini' },
-                { id: 'gcp', label: 'Google Cloud' },
-                { id: 'web', label: 'ブラウザ内蔵' }
-              ].map(engine => (
-                <button 
-                  key={engine.id} 
-                  onClick={() => setTtsPriority(engine.id)} 
-                  className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all border ${ttsPriority === engine.id ? 'bg-zinc-100 text-black border-zinc-100' : 'bg-black text-zinc-500 border-zinc-800'}`}
-                >
-                  {engine.label}
+              {[{ id: 'gemini', label: 'Gemini' }, { id: 'gcp', label: 'Google Cloud' }, { id: 'web', label: 'ブラウザ内蔵' }].map(e => (
+                <button key={e.id} onClick={() => setTtsPriority(e.id)}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${ttsPriority === e.id ? 'bg-zinc-100 text-black border-zinc-100' : 'bg-black text-zinc-500 border-zinc-800'}`}>
+                  {e.label}
                 </button>
               ))}
             </div>
           </div>
-          <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 mb-8">
-            <label className="block text-sm font-bold mb-2">最初の文字</label>
-            <input type="text" value={startKanaSetting} onChange={(e) => setStartKanaSetting(e.target.value)} className="w-full bg-black border border-zinc-700 p-3 rounded-xl text-center text-xl" />
-          </div>
-          <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 mb-8">
-            <label className="block text-sm font-bold mb-1">感度倍率（欲情度の上がりやすさ）</label>
-            <div className="flex items-center gap-4">
-               <input type="range" min="0.5" max="3.0" step="0.1" value={arousalMultiplier} onChange={(e) => setArousalMultiplier(Number(e.target.value))} className="flex-1 accent-pink-600" />
-               <span className="w-12 text-center font-bold text-pink-500">{arousalMultiplier.toFixed(1)}x</span>
+
+          {/* ゲーム設定（3つまとめて） */}
+          <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 mb-3 space-y-3">
+            <div className="flex items-center gap-3">
+              <label className="text-xs font-bold text-zinc-400 w-20 shrink-0">最初の文字</label>
+              <input type="text" value={startKanaSetting} onChange={(e) => setStartKanaSetting(e.target.value)} className="w-20 bg-black border border-zinc-700 p-2 rounded-xl text-center text-lg" />
+            </div>
+            <div className="flex items-center gap-3">
+              <label className="text-xs font-bold text-zinc-400 w-20 shrink-0">感度倍率</label>
+              <input type="range" min="0.5" max="3.0" step="0.1" value={arousalMultiplier} onChange={(e) => setArousalMultiplier(Number(e.target.value))} className="flex-1 accent-pink-600" />
+              <span className="w-10 text-right text-xs font-bold text-pink-500">{arousalMultiplier.toFixed(1)}x</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <label className="text-xs font-bold text-zinc-400 w-20 shrink-0">BGM音量</label>
+              <input type="range" min="0" max="0.5" step="0.01" value={bgmVolume} onChange={(e) => setBgmVolume(Number(e.target.value))} className="flex-1 accent-pink-600" />
+              <span className="w-10 text-right text-xs font-bold text-pink-500">{Math.round(bgmVolume * 200)}%</span>
             </div>
           </div>
-          <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800">
-            <div className="flex gap-2 mb-6">
+
+          {/* キャラカスタマイズ */}
+          <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800">
+            <div className="flex gap-2 mb-4">
               {Object.keys(charConfigs).map(k => (
-                <button key={k} onClick={() => setEditingCharKey(k)} className={`flex-1 py-2 rounded-lg text-xs font-bold ${editingCharKey === k ? 'bg-pink-600 text-white' : 'bg-black text-zinc-500'}`}>{charConfigs[k].name}</button>
+                <button key={k} onClick={() => setEditingCharKey(k)} className={`flex-1 py-1.5 rounded-lg text-xs font-bold ${editingCharKey === k ? 'bg-pink-600 text-white' : 'bg-black text-zinc-500'}`}>{charConfigs[k].name}</button>
               ))}
             </div>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 mb-4 uppercase tracking-widest">画像カスタマイズ</label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div onClick={() => { setCurrentEditingImageType('clothed'); fileInputRef.current.click(); }} className="aspect-square bg-black rounded-xl border border-dashed border-zinc-700 flex flex-col items-center justify-center cursor-pointer overflow-hidden relative">
-                    <img src={char.images.clothed} className="absolute inset-0 w-full h-full object-cover opacity-40" />
-                    <Upload size={20} className="relative z-10" />
-                    <span className="text-[10px] mt-1 relative z-10">通常時</span>
-                  </div>
-                  <div onClick={() => { setCurrentEditingImageType('unveiled'); fileInputRef.current.click(); }} className="aspect-square bg-black rounded-xl border border-dashed border-zinc-700 flex flex-col items-center justify-center cursor-pointer overflow-hidden relative">
-                    <img src={char.images.unveiled} className="absolute inset-0 w-full h-full object-cover opacity-40" />
-                    <Upload size={20} className="relative z-10" />
-                    <span className="text-[10px] mt-1 relative z-10">欲情時</span>
-                  </div>
-                </div>
-                <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div onClick={() => { setCurrentEditingImageType('clothed'); fileInputRef.current.click(); }} className="aspect-square bg-black rounded-xl border border-dashed border-zinc-700 flex flex-col items-center justify-center cursor-pointer overflow-hidden relative">
+                <img src={char.images.clothed} className="absolute inset-0 w-full h-full object-cover opacity-40" />
+                <Upload size={18} className="relative z-10" />
+                <span className="text-[10px] mt-1 relative z-10">通常時</span>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-widest">性格プロンプト</label>
-                <textarea value={char.prompt} onChange={(e) => setCharConfigs(prev => ({ ...prev, [editingCharKey]: { ...prev[editingCharKey], prompt: e.target.value } }))} className="w-full h-32 bg-black border border-zinc-700 p-4 rounded-xl text-sm leading-relaxed" />
+              <div onClick={() => { setCurrentEditingImageType('unveiled'); fileInputRef.current.click(); }} className="aspect-square bg-black rounded-xl border border-dashed border-zinc-700 flex flex-col items-center justify-center cursor-pointer overflow-hidden relative">
+                <img src={char.images.unveiled} className="absolute inset-0 w-full h-full object-cover opacity-40" />
+                <Upload size={18} className="relative z-10" />
+                <span className="text-[10px] mt-1 relative z-10">欲情時</span>
               </div>
             </div>
+            <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+            <label className="block text-xs font-bold text-zinc-500 mb-1 uppercase tracking-widest">性格プロンプト</label>
+            <textarea value={char.prompt} onChange={(e) => setCharConfigs(prev => ({ ...prev, [editingCharKey]: { ...prev[editingCharKey], prompt: e.target.value } }))} className="w-full h-28 bg-black border border-zinc-700 p-3 rounded-xl text-sm leading-relaxed" />
           </div>
         </div>
       </div>
@@ -793,17 +841,51 @@ function WordGame() {
 
   if (gameState === 'help') {
     return (
-      <div className="fixed inset-0 bg-zinc-950 p-6 flex flex-col items-center justify-center z-[100]">
-        <div className="max-w-md w-full bg-zinc-900 p-8 rounded-3xl border border-zinc-800">
-          <h2 className="text-xl font-bold text-white mb-6">遊び方</h2>
-          <ul className="space-y-4 text-zinc-400 text-sm list-disc pl-5">
-            <li>表示された「文字」から始まる単語をマイクで話してください。</li>
-            <li>エッチな言葉ほど、お姉さんの「欲情度」が上がります。</li>
-            <li>欲情度が100%になると、お姉さんが限界を迎えてあなたの勝利です。</li>
-            <li>「ん」で終わる言葉を言ったり、ルールを破るとあなたの負けです。</li>
-            <li className="text-pink-400 mt-4 list-none">※マイクが使えない環境でも、文字入力モードで遊ぶことができます。</li>
-          </ul>
-          <button onClick={() => setGameState('intro')} className="w-full mt-8 py-3 bg-zinc-100 text-black font-bold rounded-xl">分かった</button>
+      <div className="fixed inset-0 bg-zinc-950 p-6 overflow-y-auto z-[100]">
+        <div className="max-w-md mx-auto pb-12">
+          <div className="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 mb-6">
+            <h2 className="text-xl font-bold text-white mb-6">遊び方</h2>
+            <ul className="space-y-4 text-zinc-400 text-sm list-disc pl-5">
+              <li>表示された「文字」から始まる単語をマイクで話してください。</li>
+              <li>エッチな言葉ほど、お姉さんの「欲情度」が上がります。</li>
+              <li>欲情度が100%になると、お姉さんが限界を迎えてあなたの勝利です。</li>
+              <li>「ん」で終わる言葉を言ったり、ルールを破るとあなたの負けです。</li>
+              <li className="text-pink-400 mt-4 list-none">※マイクが使えない環境でも、文字入力モードで遊ぶことができます。</li>
+            </ul>
+          </div>
+
+          <div className="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 mb-6">
+            <h2 className="text-xl font-bold text-white mb-2">APIキーの取得方法</h2>
+            <p className="text-xs text-zinc-500 mb-6">このゲームはあなた自身のGoogle APIキーを使って動作します。キーはお使いのブラウザにのみ保存され、外部に送信されることはありません。</p>
+
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-sm font-bold text-pink-400 mb-1">① Gemini API キー（必須）</h3>
+                <p className="text-xs text-zinc-400 mb-2">AIとの会話・音声生成に使用します。無料枠あり。</p>
+                <ol className="text-xs text-zinc-500 space-y-1 list-decimal pl-4">
+                  <li><span className="text-zinc-300">console.cloud.google.com</span> にアクセス</li>
+                  <li>プロジェクトを作成（または選択）</li>
+                  <li>「Generative Language API」を有効化</li>
+                  <li>「認証情報」→「APIキーを作成」</li>
+                  <li>生成されたキーを設定画面に貼り付け</li>
+                </ol>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-bold text-blue-400 mb-1">② GCP Cloud TTS キー（推奨）</h3>
+                <p className="text-xs text-zinc-400 mb-2">より高品質な音声に使用します。未設定でも遊べます。</p>
+                <ol className="text-xs text-zinc-500 space-y-1 list-decimal pl-4">
+                  <li><span className="text-zinc-300">console.cloud.google.com</span> にアクセス</li>
+                  <li>プロジェクトを作成（または選択）</li>
+                  <li>「Cloud Text-to-Speech API」を有効化</li>
+                  <li>「認証情報」→「APIキーを作成」</li>
+                  <li>生成されたキーを設定画面に貼り付け</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <button onClick={() => setGameState('intro')} className="w-full py-3 bg-zinc-100 text-black font-bold rounded-xl">分かった</button>
         </div>
       </div>
     );
@@ -814,7 +896,7 @@ function WordGame() {
   const clothesOpacity = Math.max(0, 1 - (arousal / 80));
 
   return (
-    <div className="fixed inset-0 bg-black text-white flex flex-col overflow-hidden font-sans">
+    <div className={`fixed inset-0 bg-black text-white flex flex-col overflow-hidden font-sans ${arousal > 90 ? 'screen-shake' : ''}`} style={{ '--shake-speed': `${Math.max(0.15, 0.4 - (arousal - 90) / 100)}s` }}>
       <style>{`
         @keyframes pulse-vignette {
           0%, 100% { box-shadow: inset 0 0 80px rgba(220, 38, 38, 0.2); }
@@ -863,6 +945,31 @@ function WordGame() {
         }
         .body-breath {
           animation: body-breath var(--breath-cycle, 4s) ease-in-out infinite;
+        }
+        @keyframes screen-shake {
+          0%, 100% { transform: translate(0, 0); }
+          15%  { transform: translate(-4px, 2px); }
+          30%  { transform: translate(4px, -2px); }
+          45%  { transform: translate(-3px, -3px); }
+          60%  { transform: translate(3px, 3px); }
+          75%  { transform: translate(-2px, 4px); }
+          90%  { transform: translate(2px, -4px); }
+        }
+        .screen-shake {
+          animation: screen-shake var(--shake-speed, 0.4s) ease-in-out infinite;
+        }
+        @keyframes particle-rise {
+          0%   { transform: translateY(0) scale(0.8) rotate(0deg); opacity: 0; }
+          10%  { opacity: var(--particle-opacity, 0.8); }
+          80%  { opacity: var(--particle-opacity, 0.8); }
+          100% { transform: translateY(-65vh) scale(1.4) rotate(180deg); opacity: 0; }
+        }
+        .particle-float {
+          position: absolute;
+          pointer-events: none;
+          animation: particle-rise var(--particle-speed, 5s) ease-in-out infinite;
+          animation-delay: var(--particle-delay, 0s);
+          will-change: transform, opacity;
         }
       `}</style>
 
@@ -918,6 +1025,32 @@ function WordGame() {
         </div>
       )}
 
+      {/* ハート・スパークルパーティクル（arousal > 70 で発動） */}
+      {arousal > 70 && (
+        <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden">
+          {(arousal > 85
+            ? ['♡', '✦', '♡', '✧', '♡', '✦', '✧', '♡']
+            : ['♡', '✦', '♡', '✧']
+          ).map((symbol, i, arr) => (
+            <span
+              key={`particle-${i}`}
+              className="particle-float"
+              style={{
+                left: `${5 + (i * 97) % 90}%`,
+                bottom: `${10 + (i * 37) % 30}%`,
+                fontSize: `${0.8 + (i % 4) * 0.3}rem`,
+                color: i % 3 === 0 ? '#f9a8d4' : i % 3 === 1 ? '#fbcfe8' : '#fce7f3',
+                '--particle-speed': `${Math.max(2.5, 6 - (arousal / 30))}s`,
+                '--particle-delay': `${(i * 0.7) % arr.length}s`,
+                '--particle-opacity': `${Math.min(0.9, (arousal - 70) / 30 + 0.3)}`,
+              }}
+            >
+              {symbol}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="absolute top-0 left-0 right-0 z-50 p-4 flex justify-between items-start">
          <button onClick={() => {
            if(currentAudioRef.current) currentAudioRef.current.pause();
@@ -929,13 +1062,27 @@ function WordGame() {
            setGameState('intro');
          }} className="p-2 bg-black/20 rounded-full backdrop-blur-sm border border-white/5"><Home size={18} /></button>
          <div className="flex flex-col items-center">
-            <div className="flex items-center gap-1.5 bg-black/40 px-4 py-1.5 rounded-full border border-white/5">
-              <Heart 
-                size={14} 
-                className={`text-pink-500 ${arousal > 0 ? 'heart-active' : ''}`} 
+            <div className="flex items-center gap-1.5 bg-black/40 px-4 py-2 rounded-full border border-white/5">
+              <Heart
+                size={16}
+                className={`text-pink-500 ${arousal > 0 ? 'heart-active' : ''}`}
                 style={{ '--heart-speed': `${Math.max(0.3, 1.5 - (arousal / 80))}s` }}
               />
-              <span className="text-sm font-bold">{arousal}%</span>
+              <span className="text-base font-bold">{arousal}%</span>
+            </div>
+            {/* 欲情度プログレスバー */}
+            <div className="w-28 h-1.5 bg-zinc-800/60 rounded-full mt-1.5 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${arousal}%`,
+                  background: arousal > 80
+                    ? 'linear-gradient(to right, #ec4899, #ef4444)'
+                    : arousal > 50
+                    ? 'linear-gradient(to right, #db2777, #ec4899)'
+                    : '#ec4899',
+                }}
+              />
             </div>
          </div>
          <div className="w-8"></div>
@@ -970,13 +1117,13 @@ function WordGame() {
 
       {(gameState === 'ready' || gameState === 'gameover') && (
         <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
-          <h2 className="text-4xl font-black mb-8">{gameState === 'gameover' ? (gameResult === 'win' ? 'VICTORY!!' : 'GAME OVER') : 'READY?'}</h2>
+          <h2 className="text-4xl font-black mb-8">{gameState === 'gameover' ? (gameResult === 'win' ? '逝っちゃた、貴方の勝ちよ！' : 'GAME OVER') : 'READY?'}</h2>
           <button onClick={() => { 
             setAiResponseText(''); setPlayerInputText('');
             setGameState('playing'); setArousal(0); setHistory([]); setDisplayKana(startKanaSetting); 
             speak(`始めましょう。最初は「${startKanaSetting}」からよ。`, "妖艶に");
           }} className="px-12 py-4 bg-pink-600 rounded-full font-bold text-lg shadow-2xl hover:scale-105 transition-transform">
-            {gameState === 'gameover' ? 'もう一度' : '対話を開始'}
+            {gameState === 'gameover' ? 'もう一度' : '遊びましょ♡'}
           </button>
         </div>
       )}
@@ -1045,7 +1192,7 @@ function WordGame() {
                    className="bg-zinc-900/80 p-4 rounded-full border border-white/10 text-zinc-500 hover:text-white flex items-center justify-center"
                    title="キーボード入力へ"
                 >
-                   <Settings size={20} />
+                   <Keyboard size={20} />
                 </button>
               </div>
             )}

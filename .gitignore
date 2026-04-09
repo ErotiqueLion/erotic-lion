@@ -12,6 +12,16 @@ dist
 dist-ssr
 *.local
 
+# APIキー等の機密ファイル
+key.txt
+*.key
+.env
+.env.*
+
+# ローカル専用ファイル
+ローカル実行.txt
+.claude/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,9 +1,0 @@
-GoogleCloud
-Cloud Text-to-Speech API
-EWC API key1:AIzaSyCj3gJ9jk5uiDVLMALdnkkk2_G5oUB_3r4
-Cloud Generative Language API 	
-EWC API key2:AIzaSyA_1KRI8HSBxpOHNLkvORWx-JSNeJ7lE3s
-
-GoogleAIStudio
-EWC_API
-AIzaSyCnDE_RJPHwQMW4pVlCfeCP2dWKA4vQNXI
