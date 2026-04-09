@@ -692,8 +692,8 @@ function WordGame() {
 
   if (gameState === 'locked') {
     return (
-      <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center p-6 z-[100]">
-        <div className="w-full max-w-sm bg-zinc-900/80 backdrop-blur-xl border border-zinc-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center">
+      <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center p-4 sm:p-6 z-[100]">
+        <div className="w-full max-w-sm bg-zinc-900/80 backdrop-blur-xl border border-zinc-800 p-6 sm:p-8 rounded-3xl shadow-2xl flex flex-col items-center">
           <Lock className="text-zinc-500 mb-6" size={32} />
           <h2 className="text-xl text-white font-bold mb-6 tracking-widest uppercase">Secret Room</h2>
           <input type="password" value={passcode} onChange={(e) => setPasscode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleUnlock()} className="w-full bg-black text-white px-4 py-3 text-center tracking-widest rounded-xl border border-zinc-700 mb-2" placeholder="Passcode"/>
@@ -710,8 +710,8 @@ function WordGame() {
 
   if (gameState === 'intro') {
     return (
-      <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center p-6 z-[100]">
-        <h1 className="text-4xl md:text-5xl font-black text-white mb-8 tracking-widest drop-shadow-lg text-center">淫らな尻とり</h1>
+      <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center p-4 sm:p-6 z-[100]">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-8 tracking-widest drop-shadow-lg text-center">淫らな尻とり</h1>
         <div className="flex gap-8 mb-12">
           <button onClick={() => setGameState('help')} className="flex flex-col items-center text-zinc-400 hover:text-white transition-colors">
             <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-full mb-2 shadow-lg"><HelpCircle size={28} /></div>
@@ -738,10 +738,10 @@ function WordGame() {
 
   if (gameState === 'character_select') {
     return (
-      <div className="fixed inset-0 bg-zinc-950 p-6 overflow-y-auto z-[100]">
+      <div className="fixed inset-0 bg-zinc-950 p-4 sm:p-6 overflow-y-auto z-[100]">
         <button onClick={() => setGameState('intro')} className="mb-8 p-2 text-zinc-400 flex items-center gap-1"><ChevronLeft size={20} /> 戻る</button>
         <h2 className="text-2xl font-bold text-white mb-8 text-center tracking-widest">相手を選んでください</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto pb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-5xl mx-auto pb-12">
           {Object.entries(charConfigs).map(([key, char]) => (
             <div key={key} onClick={() => { setSelectedCharKey(key); setGameState('ready'); }} className="group relative bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 hover:border-pink-500 transition-all cursor-pointer">
               <div className="aspect-[3/4] relative">
@@ -887,7 +887,7 @@ function WordGame() {
 
   if (gameState === 'help') {
     return (
-      <div className="fixed inset-0 bg-zinc-950 p-6 overflow-y-auto z-[100]">
+      <div className="fixed inset-0 bg-zinc-950 p-4 sm:p-6 overflow-y-auto z-[100]">
         <div className="max-w-md mx-auto pb-12">
           <div className="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 mb-6">
             <h2 className="text-xl font-bold text-white mb-6">遊び方</h2>
@@ -942,7 +942,7 @@ function WordGame() {
   const clothesOpacity = Math.max(0, 1 - (arousal / 80));
 
   return (
-    <div className={`fixed inset-0 bg-black text-white flex flex-col overflow-hidden font-sans ${arousal > 90 ? 'screen-shake' : ''}`} style={{ '--shake-speed': `${Math.max(0.15, 0.4 - (arousal - 90) / 100)}s` }}>
+    <div className={`fixed top-0 left-0 right-0 h-dvh bg-black text-white flex flex-col overflow-hidden font-sans ${arousal > 90 ? 'screen-shake' : ''}`} style={{ '--shake-speed': `${Math.max(0.15, 0.4 - (arousal - 90) / 100)}s` }}>
       <style>{`
         @keyframes pulse-vignette {
           0%, 100% { box-shadow: inset 0 0 80px rgba(220, 38, 38, 0.2); }
@@ -1163,7 +1163,7 @@ function WordGame() {
 
       {(gameState === 'ready' || gameState === 'gameover') && (
         <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
-          <h2 className="text-4xl font-black mb-8">{gameState === 'gameover' ? (gameResult === 'win' ? '逝っちゃた、貴方の勝ちよ！' : 'GAME OVER') : 'READY?'}</h2>
+          <h2 className="text-3xl sm:text-4xl font-black mb-8 text-center px-4">{gameState === 'gameover' ? (gameResult === 'win' ? '逝っちゃた、貴方の勝ちよ！' : 'GAME OVER') : 'READY?'}</h2>
           <button onClick={() => { 
             setAiResponseText(''); setPlayerInputText('');
             setGameState('playing'); setArousal(0); setHistory([]); setDisplayKana(startKanaSetting); 
@@ -1178,7 +1178,7 @@ function WordGame() {
         <div className="absolute bottom-0 left-0 right-0 z-30 flex flex-col items-center pb-8 bg-gradient-to-t from-black/90 via-black/70 to-transparent pt-12">
           
           {/* AIの反応や自分の入力した文字を表示するエリア */}
-          <div className="w-full px-8 min-h-[40px] flex flex-col items-center justify-end mb-6">
+          <div className="w-full px-4 sm:px-8 min-h-[40px] flex flex-col items-center justify-end mb-6">
             {aiResponseText && !isListening && <p className="text-xl font-medium text-center mb-2 drop-shadow-md">{aiResponseText}</p>}
             
             {/* テキスト入力モードの時は、話した言葉の表示を少し変える */}
@@ -1192,14 +1192,14 @@ function WordGame() {
             
             <div className="flex flex-col items-center bg-black/60 px-4 py-2 rounded-xl border border-white/10 shadow-inner">
               <span className="text-[10px] text-zinc-400 font-bold tracking-widest">NEXT</span>
-              <div className="text-3xl font-black text-white drop-shadow-md">{displayKana}</div>
+              <div className="text-2xl sm:text-3xl font-black text-white drop-shadow-md">{displayKana}</div>
             </div>
 
             {/* スマホ等でマイクが使えない場合のテキスト入力モード */}
             {useTextInput ? (
               <div className="flex-1 flex gap-2">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   placeholder="ひらがなで..."
@@ -1213,7 +1213,22 @@ function WordGame() {
                   }}
                   disabled={isSpeaking || isThinking}
                 />
-                <button 
+                {/* 送信ボタン（モバイルのEnterキー代替） */}
+                <button
+                  onClick={() => {
+                    if (inputText.trim() && !isSpeaking && !isThinking) {
+                      setAiResponseText('');
+                      handlePlayerInput(inputText.trim());
+                      setInputText("");
+                    }
+                  }}
+                  disabled={!inputText.trim() || isSpeaking || isThinking}
+                  className="bg-pink-600 p-3 rounded-xl text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed hover:bg-pink-500 transition-colors"
+                  title="送信"
+                >
+                  <Activity size={20} />
+                </button>
+                <button
                   onClick={() => setUseTextInput(false)}
                   className="bg-zinc-800 p-3 rounded-xl text-zinc-400 hover:text-white flex items-center justify-center"
                   title="マイク入力へ"
