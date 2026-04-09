@@ -160,8 +160,8 @@ function WordGame() {
   useEffect(() => {
     if (gameState === 'playing' && isThinking) {
       if (!bgmRef.current) {
-        // BASE_URL を使って正しいパスに解決する（GitHub Pages 対応）
-        bgmRef.current = new Audio(import.meta.env.BASE_URL + 'bgm.mp3');
+        // カスタム曲があればそれを使用、なければデフォルト BGM
+        bgmRef.current = new Audio(bgmCustomUrlRef.current ?? (import.meta.env.BASE_URL + 'bgm.mp3'));
         bgmRef.current.loop = true;
         bgmRef.current.volume = 0;
       }
@@ -204,6 +204,9 @@ function WordGame() {
   const notifyTimerRef = useRef(null);
   // BGM 再生用
   const bgmRef = useRef(null);
+  // プレイヤーが選択したカスタム曲のオブジェクトURL
+  const bgmCustomUrlRef = useRef(null);
+  const [bgmFileName, setBgmFileName] = useState('デフォルト');
 
   // 通知を表示（5秒で自動クローズ）
   const showNotification = (text, type = 'warning', durationMs = 5000) => {
@@ -211,6 +214,27 @@ function WordGame() {
     setNotification({ type, text });
     notifyTimerRef.current = setTimeout(() => setNotification(null), durationMs);
   };
+
+  // カスタム曲ファイルを選択したときの処理
+  const handleMusicFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    // 旧オブジェクトURLを解放してメモリリークを防ぐ
+    if (bgmCustomUrlRef.current) URL.revokeObjectURL(bgmCustomUrlRef.current);
+    bgmCustomUrlRef.current = URL.createObjectURL(file);
+    setBgmFileName(file.name);
+    // 既存のAudioオブジェクトをリセット（次回isThinkingで新URLから再生される）
+    if (bgmRef.current) { bgmRef.current.pause(); bgmRef.current = null; }
+  };
+
+  // カスタム曲をデフォルトに戻す
+  const handleMusicReset = () => {
+    if (bgmCustomUrlRef.current) URL.revokeObjectURL(bgmCustomUrlRef.current);
+    bgmCustomUrlRef.current = null;
+    setBgmFileName('デフォルト');
+    if (bgmRef.current) { bgmRef.current.pause(); bgmRef.current = null; }
+  };
+
   const [currentEditingImageType, setCurrentEditingImageType] = useState(null);
   const isBusyRef = useRef(false);
   const stateRef = useRef({ arousal, displayKana, history, selectedCharKey, charConfigs, gameState });
@@ -676,6 +700,10 @@ function WordGame() {
           {passcodeError && <p className="text-xs text-red-400 font-bold mb-4">{passcodeError}</p>}
           <button onClick={handleUnlock} className="w-full bg-zinc-100 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 mt-4"><Unlock size={18} /> 入室</button>
         </div>
+        {/* ポータルへ戻るリンク */}
+        <a href="../../" className="mt-6 flex items-center gap-2 text-zinc-600 hover:text-zinc-400 transition-colors text-xs tracking-widest">
+          <Home size={14} />ポータルへ戻る
+        </a>
       </div>
     );
   }
@@ -805,10 +833,27 @@ function WordGame() {
               <input type="range" min="0.5" max="3.0" step="0.1" value={arousalMultiplier} onChange={(e) => setArousalMultiplier(Number(e.target.value))} className="flex-1 accent-pink-600" />
               <span className="w-10 text-right text-xs font-bold text-pink-500">{arousalMultiplier.toFixed(1)}x</span>
             </div>
-            <div className="flex items-center gap-3">
-              <label className="text-xs font-bold text-zinc-400 w-20 shrink-0">BGM音量</label>
-              <input type="range" min="0" max="0.5" step="0.01" value={bgmVolume} onChange={(e) => setBgmVolume(Number(e.target.value))} className="flex-1 accent-pink-600" />
-              <span className="w-10 text-right text-xs font-bold text-pink-500">{Math.round(bgmVolume * 200)}%</span>
+            {/* 保留Music：曲選択 + 音量 */}
+            <div className="flex gap-3">
+              <label className="text-xs font-bold text-zinc-400 w-20 shrink-0 mt-1">保留Music</label>
+              <div className="flex flex-col flex-1 gap-2">
+                {/* 曲選択ボタンとファイル名表示 */}
+                <div className="flex items-center gap-2">
+                  <label className="cursor-pointer bg-zinc-800 border border-zinc-700 text-xs text-zinc-300 px-3 py-1.5 rounded-lg hover:border-pink-600 transition-colors whitespace-nowrap">
+                    選択
+                    <input type="file" accept="audio/*" className="hidden" onChange={handleMusicFileSelect} />
+                  </label>
+                  <span className="text-xs text-zinc-500 truncate flex-1 max-w-[130px]" title={bgmFileName}>{bgmFileName}</span>
+                  {bgmFileName !== 'デフォルト' && (
+                    <button onClick={handleMusicReset} className="text-zinc-600 hover:text-zinc-400 text-xs">×</button>
+                  )}
+                </div>
+                {/* 音量スライダー */}
+                <div className="flex items-center gap-2">
+                  <input type="range" min="0" max="0.5" step="0.01" value={bgmVolume} onChange={(e) => setBgmVolume(Number(e.target.value))} className="flex-1 accent-pink-600" />
+                  <span className="w-10 text-right text-xs font-bold text-pink-500">{Math.round(bgmVolume * 200)}%</span>
+                </div>
+              </div>
             </div>
           </div>
 
