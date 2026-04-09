@@ -3,157 +3,152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>A gift from the erotic lion</title>
+    <title>A Gift from the Erotic Lion</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --acid-yellow: #dbff00;
-            --hot-pink: #ff007a;
-            --electric-blue: #00f0ff;
-            --deep-void: #0a0a0a;
-            --psycho-purple: #7000ff;
+            --bg:      #0d0008;
+            --main:    #8b0000;
+            --accent:  #c9a84c;
+            --text:    #f0e6d3;
+            --subtext: #9e8f7a;
+            --border:  #3a1a1a;
+            --card-bg: #100008;
         }
 
-        *, *::before, *::after {
-            box-sizing: border-box;
-        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         html {
-            margin: 0;
-            padding: 0;
-            background-color: var(--deep-void);
-            overflow-x: hidden;
-            overflow-y: scroll;
-            width: 100%;
-            height: 100%;
+            background: var(--bg);
+            scroll-behavior: smooth;
         }
 
         body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            min-height: 100%;
-            color: #fff;
-            font-family: 'Arial Black', 'Inter', 'Hiragino Kaku Gothic ProN', sans-serif;
+            color: var(--text);
+            font-family: 'Noto Serif JP', Georgia, serif;
+            min-height: 100vh;
+            overflow-x: hidden;
             position: relative;
-            overflow: visible;
         }
 
-        .liquid-bg {
+        /* 背景ノイズテクスチャ */
+        body::before {
+            content: "";
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            background: linear-gradient(45deg, #0a0a0a, #1a0033, #33001a, #0a0a0a);
-            background-size: 400% 400%;
-            animation: fluidMove 15s ease infinite;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            opacity: 0.035;
+            pointer-events: none;
+            z-index: 0;
         }
 
-        @keyframes fluidMove {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+        /* ── ヘッダー ── */
+        header {
+            text-align: center;
+            padding: 80px 20px 64px;
+            position: relative;
+            z-index: 1;
+            border-bottom: 1px solid var(--border);
         }
 
-        .liquid-bg::after {
+        .ornament {
+            font-family: 'Cinzel', serif;
+            color: var(--accent);
+            letter-spacing: 12px;
+            font-size: 0.7rem;
+            opacity: 0.6;
+            margin-bottom: 28px;
+        }
+
+        h1 {
+            font-family: 'Cinzel', serif;
+            font-weight: 900;
+            font-size: clamp(1.8rem, 8vw, 4.2rem);
+            line-height: 1.15;
+            color: var(--text);
+            text-shadow: 0 0 60px rgba(201,168,76,0.2);
+            letter-spacing: 2px;
+        }
+
+        h1 em {
+            font-style: normal;
+            color: var(--accent);
+        }
+
+        .divider {
+            width: 180px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            margin: 28px auto;
+        }
+
+        .tagline {
+            font-family: 'Cinzel', serif;
+            font-size: 0.68rem;
+            letter-spacing: 8px;
+            color: var(--subtext);
+            text-transform: uppercase;
+        }
+
+        /* ── ゲームグリッド ── */
+        main {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 28px;
+            padding: 64px 40px 80px;
+            max-width: 1100px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── カード ── */
+        .card {
+            display: block;
+            text-decoration: none;
+            color: inherit;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            position: relative;
+            transition: transform 0.35s ease, box-shadow 0.35s ease, border-color 0.3s ease;
+            overflow: hidden;
+        }
+
+        /* 四隅の金装飾 */
+        .card::before,
+        .card::after {
             content: "";
             position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-            opacity: 0.08;
+            width: 14px;
+            height: 14px;
+            border-color: var(--accent);
+            border-style: solid;
+            opacity: 0.5;
+            transition: opacity 0.3s;
+            z-index: 2;
             pointer-events: none;
         }
+        .card::before { top: 7px; left: 7px;  border-width: 1px 0 0 1px; }
+        .card::after  { bottom: 7px; right: 7px; border-width: 0 1px 1px 0; }
 
-        .header {
-            padding: 80px 20px;
-            text-align: center;
-            position: relative;
-            background: rgba(0,0,0,0.6);
-            border-bottom: 8px solid var(--acid-yellow);
+        .card:hover {
+            transform: translateY(-7px);
+            border-color: rgba(201,168,76,0.5);
+            box-shadow:
+                0 16px 48px rgba(139,0,0,0.45),
+                0 0 24px rgba(201,168,76,0.08);
         }
 
-        .title-container {
-            position: relative;
-            display: inline-block;
-        }
+        .card:hover::before,
+        .card:hover::after { opacity: 1; }
 
-        .header h1 {
-            font-size: clamp(2rem, 10vw, 4.5rem);
-            margin: 0;
-            line-height: 0.9;
-            text-transform: uppercase;
-            color: #fff;
-            -webkit-text-stroke: 1.5px var(--hot-pink);
-            position: relative;
-            z-index: 2;
-            filter: drop-shadow(0 0 15px var(--hot-pink));
-        }
-
-        .header h1 span {
-            display: block;
-            color: var(--acid-yellow);
-            -webkit-text-stroke: 0;
-            font-size: 0.4em;
-            letter-spacing: 12px;
-            margin-top: 15px;
-            font-weight: 900;
-            text-shadow: none;
-        }
-
-        .fang {
-            position: absolute;
-            width: 0;
-            height: 0;
-            border-left: 50px solid transparent;
-            border-right: 50px solid transparent;
-            border-top: 100px solid var(--hot-pink);
-            top: -20px;
-            left: -50px;
-            z-index: 1;
-            transform: rotate(-15deg);
-            opacity: 0.7;
-        }
-
-        .fang-right {
-            left: auto;
-            right: -50px;
-            transform: rotate(15deg);
-            border-top-color: var(--electric-blue);
-        }
-
-        .game-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 40px;
-            padding: 60px 20px;
-            max-width: 1200px;
-            margin: 0 auto;
-            justify-content: center;
-        }
-
-        .game-card {
-            background: #111;
-            position: relative;
-            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
-            clip-path: polygon(0 5%, 100% 0, 95% 100%, 5% 95%);
-            border: 2px solid #222;
-            text-decoration: none;
-            display: block;
-            color: inherit;
-        }
-
-        .game-card:hover {
-            clip-path: polygon(5% 0, 95% 5%, 100% 95%, 0 100%);
-            transform: translateY(-10px) scale(1.02);
-            border-color: var(--acid-yellow);
-            box-shadow: 0 0 40px rgba(219, 255, 0, 0.2);
-        }
-
-        .thumbnail {
+        /* サムネイル（幕風） */
+        .thumb {
             width: 100%;
-            aspect-ratio: 16/10;
-            background: linear-gradient(135deg, var(--psycho-purple), var(--hot-pink));
+            aspect-ratio: 16/9;
+            background: linear-gradient(160deg, #280010 0%, #6b0000 55%, #180008 100%);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -161,146 +156,170 @@
             overflow: hidden;
         }
 
-        .thumbnail::before {
+        /* 幕の縦ストライプ */
+        .thumb::before {
             content: "";
             position: absolute;
-            width: 150%;
-            height: 150%;
-            background: conic-gradient(from 180deg, transparent, var(--electric-blue), transparent);
-            animation: rotateThumbnail 6s linear infinite;
+            inset: 0;
+            background: repeating-linear-gradient(
+                90deg,
+                rgba(0,0,0,0) 0px,
+                rgba(0,0,0,0) 26px,
+                rgba(0,0,0,0.18) 26px,
+                rgba(0,0,0,0.18) 30px
+            );
         }
 
-        @keyframes rotateThumbnail {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+        /* ホバーで幕上端に光 */
+        .thumb::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0;
+            transition: opacity 0.4s;
         }
 
-        .thumbnail-content {
+        .card:hover .thumb::after { opacity: 0.8; }
+
+        .thumb-icon {
+            font-size: 3.6rem;
             position: relative;
-            z-index: 2;
-            font-size: 5rem;
-            filter: drop-shadow(0 0 10px rgba(0,0,0,0.8));
+            z-index: 1;
+            filter: drop-shadow(0 4px 16px rgba(0,0,0,0.9));
+            transition: transform 0.35s ease;
         }
 
+        .card:hover .thumb-icon { transform: scale(1.08); }
+
+        /* カード本文 */
         .info {
-            padding: 25px;
-            background: #000;
+            padding: 20px 22px 24px;
+            border-top: 1px solid var(--border);
         }
 
         .info h2 {
-            margin: 0;
-            font-size: 1.5rem;
-            color: var(--acid-yellow);
+            font-family: 'Cinzel', serif;
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--accent);
+            letter-spacing: 3px;
             text-transform: uppercase;
-            font-style: italic;
+            margin-bottom: 10px;
         }
 
         .info p {
-            font-size: 0.9rem;
-            color: #888;
-            margin: 15px 0;
-            line-height: 1.6;
+            font-size: 0.8rem;
+            color: var(--subtext);
+            line-height: 1.8;
+            margin-bottom: 18px;
         }
 
-        .play-btn {
-            display: block;
-            text-align: center;
-            padding: 12px;
-            background: var(--hot-pink);
-            color: #fff;
-            font-weight: 900;
-            letter-spacing: 2px;
-            transition: 0.3s;
-            clip-path: polygon(5% 0, 100% 0, 95% 100%, 0 100%);
-        }
-
-        .game-card:hover .play-btn {
-            background: var(--electric-blue);
-            color: #000;
-        }
-
-        footer {
-            background: var(--acid-yellow);
-            color: #000;
-            padding: 30px;
-            text-align: center;
-            font-weight: 900;
+        .btn {
+            display: inline-block;
+            padding: 7px 20px;
+            border: 1px solid rgba(201,168,76,0.5);
+            color: var(--accent);
+            font-family: 'Cinzel', serif;
+            font-size: 0.68rem;
+            letter-spacing: 3px;
             text-transform: uppercase;
-            margin-top: 100px;
-            transform: skewY(-1deg);
-            letter-spacing: 5px;
-            width: 100%;
+            transition: background 0.3s, color 0.3s, border-color 0.3s;
         }
 
-        @media (max-width: 768px) {
-            .header h1 { font-size: 2.5rem; }
-            .fang { display: none; }
-            .game-grid {
-                grid-template-columns: 1fr;
-                padding: 40px 20px;
-            }
+        .card:hover .btn {
+            background: var(--accent);
+            color: var(--bg);
+            border-color: var(--accent);
+        }
+
+        /* 未実装カード */
+        .card.soon {
+            opacity: 0.38;
+            pointer-events: none;
+        }
+
+        /* ── フッター ── */
+        footer {
+            border-top: 1px solid var(--border);
+            text-align: center;
+            padding: 36px 20px;
+            font-family: 'Cinzel', serif;
+            font-size: 0.65rem;
+            letter-spacing: 6px;
+            color: var(--subtext);
+            text-transform: uppercase;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* スマホ対応 */
+        @media (max-width: 600px) {
+            header { padding: 56px 20px 48px; }
+            main { padding: 40px 20px 60px; gap: 20px; }
+            h1 { letter-spacing: 1px; }
         }
     </style>
 </head>
 <body>
-    <div class="liquid-bg"></div>
 
-    <header class="header">
-        <div class="title-container">
-            <div class="fang"></div>
-            <div class="fang fang-right"></div>
-            <h1>A GIFT FROM THE<br>EROTIC LION<span>Wild Psycho Arcade</span></h1>
-        </div>
+    <header>
+        <p class="ornament">✦ &nbsp; ✦ &nbsp; ✦</p>
+        <h1>A GIFT FROM THE<br><em>EROTIC LION</em></h1>
+        <div class="divider"></div>
+        <p class="tagline">Wild Psycho Arcade</p>
     </header>
 
-    <div class="game-grid">
-        <a href="./games/Inmouder.html" class="game-card">
-            <div class="thumbnail" style="background: linear-gradient(135deg, var(--deep-void), var(--hot-pink));">
-                <div class="thumbnail-content">🖤</div>
+    <main>
+
+        <a href="./games/Inmouder.html" class="card">
+            <div class="thumb">
+                <span class="thumb-icon">🖤</span>
             </div>
             <div class="info">
                 <h2>陰毛だーゲーム</h2>
-                <p>深淵から忍び寄る快楽。闇の中に隠された禁忌の快感を暴き出せ。最新作、ついに解禁。</p>
-                <div class="play-btn">DEEP DIVE</div>
+                <p>深淵から忍び寄る快楽。闇の中に隠された禁忌の快感を暴き出せ。</p>
+                <span class="btn">Enter</span>
             </div>
         </a>
 
-        <a href="./games/hip.html" class="game-card">
-            <div class="thumbnail" style="background: linear-gradient(135deg, var(--hot-pink), var(--electric-blue));">
-                <div class="thumbnail-content">🍑</div>
+        <a href="./games/hip.html" class="card">
+            <div class="thumb">
+                <span class="thumb-icon">🍑</span>
             </div>
             <div class="info">
                 <h2>HIP</h2>
-                <p>視線を奪う曲線美。揺れる衝動に身を任せる、禁断のハイパー・アクション。</p>
-                <div class="play-btn">TOUCH ME</div>
+                <p>視線を奪う曲線美。揺れる衝動に身を任せる、禁断の快楽。</p>
+                <span class="btn">Enter</span>
             </div>
         </a>
 
-        <a href="./games/lion-heart.html" class="game-card">
-            <div class="thumbnail">
-                <div class="thumbnail-content">🦁</div>
+        <a href="./games/erotic-word-chain.html" class="card">
+            <div class="thumb">
+                <span class="thumb-icon">🦁</span>
             </div>
             <div class="info">
-                <h2>LION HEART</h2>
-                <p>捕食者の視線に震える。野生の衝動を解放する究極の官能パズル。</p>
-                <div class="play-btn">PLAY NOW</div>
+                <h2>Erotic Word Chain</h2>
+                <p>野生の舌と淫らな言葉の応酬。AIとのしりとりで欲情度を高めよ。</p>
+                <span class="btn">Enter</span>
             </div>
         </a>
 
-        <a href="./games/psycho-loop.html" class="game-card">
-            <div class="thumbnail" style="background: linear-gradient(135deg, var(--psycho-purple), var(--acid-yellow));">
-                <div class="thumbnail-content">🌀</div>
+        <a href="./games/psycho-loop.html" class="card soon">
+            <div class="thumb" style="background: linear-gradient(160deg, #08001a 0%, #2a0055 55%, #080010 100%);">
+                <span class="thumb-icon">🌀</span>
             </div>
             <div class="info">
-                <h2>PSYCHO LOOP</h2>
-                <p>終わらない夜、繰り返される悦び。サイケデリックなループの果てに溺れる。</p>
-                <div class="play-btn">ENTER LOOP</div>
+                <h2>Psycho Loop</h2>
+                <p>終わらない夜。繰り返される悦びの渦に沈め。（近日公開）</p>
+                <span class="btn">Coming Soon</span>
             </div>
         </a>
-    </div>
 
-    <footer>
-        Stay Wild, Stay Erotic.
-    </footer>
+    </main>
+
+    <footer>Stay Wild, Stay Erotic.</footer>
+
 </body>
 </html>
