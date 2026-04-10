@@ -202,8 +202,6 @@ function WordGame() {
   const geminiTtsQuotaRef = useRef(false);
   // 通知トーストの自動クローズ用タイマー
   const notifyTimerRef = useRef(null);
-  // 音声認識の自動リトライフラグ（iOS Safari 初回 'aborted' 対応）
-  const recognitionRetriedRef = useRef(false);
   // BGM 再生用
   const bgmRef = useRef(null);
   // プレイヤーが選択したカスタム曲のオブジェクトURL
@@ -307,14 +305,7 @@ function WordGame() {
             handlePlayerInput(lastText);
         }
       };
-      recognition.onerror = (e) => {
-        setIsListening(false);
-        // iOS Safari: 初回の音声認識で 'aborted' が発生する既知の問題。一度だけ自動リトライ
-        if (e.error === 'aborted' && !recognitionRetriedRef.current) {
-          recognitionRetriedRef.current = true;
-          setTimeout(() => { initRecognition(); recognitionRef.current?.start(); }, 200);
-        }
-      };
+      recognition.onerror = () => setIsListening(false);
       recognitionRef.current = recognition;
       return true;
     }
@@ -446,8 +437,7 @@ function WordGame() {
         })
       });
       const data = await res.json();
-      // HTTP ステータスをエラーメッセージに含めて catch での判定を正確にする
-      if (data.error) throw new Error(`[${res.status}] ${data.error.message || JSON.stringify(data.error)}`);
+      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
       const candidate = data.candidates?.[0];
       const pcm = candidate?.content?.parts?.[0]?.inlineData?.data;
       if (!pcm) {
@@ -498,8 +488,8 @@ function WordGame() {
         }
       }
     } catch (e) {
-      // HTTP 429 のみクォータフラグをセット（403等の別エラーで誤って無効化されるのを防ぐ）
-      if (e.message?.startsWith('[429]')) {
+      if (e.message?.includes('quota') || e.message?.includes('429')) {
+        // クォータ超過：以降の試行を無駄にしないためセッション内でスキップ
         geminiTtsQuotaRef.current = true;
         console.warn("Gemini TTS quota exceeded. Switching to GCP TTS for this session.");
         showNotification("Gemini 音声の1日上限に達しました。Google Cloud 音声に切り替えます。", 'info');
@@ -1302,7 +1292,6 @@ function WordGame() {
                       recognitionRef.current?.stop();
                     } else {
                       ensureAudioContext(); // iOS Safari: マイクボタンもユーザージェスチャーで AudioContext を解除
-                      recognitionRetriedRef.current = false; // 明示的タップ時はリトライフラグをリセット
                       setAiResponseText(''); setPlayerInputText('');
                       // iOS Safari は同一インスタンスの再起動が不安定なため毎回新規作成
                       initRecognition();
