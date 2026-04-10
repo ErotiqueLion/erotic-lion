@@ -86,6 +86,7 @@ Respond ONLY in the following JSON format (no markdown, no extra text):
 {
   "thought_process": "Player input: ... End char: ... Chosen word: ...",
   "feedback": "NPC's passionate Japanese response (2-3 sentences), arousal ${arousal}%",
+  "tts_text": "Same as feedback but replace ambiguous kanji with hiragana reading (e.g. 身体→からだ, 今日→きょう)",
   "word": "your shiritori word in kanji/kana",
   "word_reading": "hiragana reading of your word",
   "next_kana": "last kana of your word (converted to large kana if small)",
@@ -355,8 +356,8 @@ function WordGame() {
     }
   };
 
-  const speakWithWebSpeech = (text, nextKanaUpdate, isGameOverCall) => {
-    const cleanText = text.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
+  const speakWithWebSpeech = (text, nextKanaUpdate, isGameOverCall, ttsOverride = null) => {
+    const cleanText = (ttsOverride || text).replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
     setAiResponseText(text);
     if (nextKanaUpdate) setDisplayKana(nextKanaUpdate);
 
@@ -378,10 +379,10 @@ function WordGame() {
     return false;
   };
 
-  const speakWithGCP = async (text, inst, nextKanaUpdate, isGameOverCall) => {
+  const speakWithGCP = async (text, inst, nextKanaUpdate, isGameOverCall, ttsOverride = null) => {
     if (!gcpApiKey) return false;
     try {
-      const cleanText = text.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
+      const cleanText = (ttsOverride || text).replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
       const voiceName = charConfigs[stateRef.current.selectedCharKey].gcpVoice || "ja-JP-Neural2-B";
       
       const res = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${gcpApiKey}`, {
@@ -436,10 +437,10 @@ function WordGame() {
     return false;
   };
 
-  const speakWithGemini = async (text, inst, nextKanaUpdate, isGameOverCall) => {
+  const speakWithGemini = async (text, inst, nextKanaUpdate, isGameOverCall, ttsOverride = null) => {
     if (!geminiApiKey || geminiTtsQuotaRef.current) return false;
     try {
-      let cleanText = text.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
+      let cleanText = (ttsOverride || text).replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
       // TTS プロンプトは感情指示とセリフのみ（欲情度・過激表現を含めると空レスポンスになる）
       const ttsPrompt = `次のセリフを「${inst || '自然に'}」という感情で読んでください：${cleanText}`;
 
@@ -523,9 +524,9 @@ function WordGame() {
     return false;
   };
 
-  const speak = async (text, inst, nextKanaUpdate = null, isGameOverCall = false) => {
+  const speak = async (text, inst, nextKanaUpdate = null, isGameOverCall = false, ttsOverride = null) => {
     setIsSpeaking(true); isBusyRef.current = true;
-    
+
     const engines = [];
     if (ttsPriority === 'gemini') engines.push('gemini', 'gcp', 'web');
     else if (ttsPriority === 'gcp') engines.push('gcp', 'gemini', 'web');
@@ -533,9 +534,9 @@ function WordGame() {
 
     for (const engine of engines) {
       let success = false;
-      if (engine === 'gemini') success = await speakWithGemini(text, inst, nextKanaUpdate, isGameOverCall);
-      else if (engine === 'gcp') success = await speakWithGCP(text, inst, nextKanaUpdate, isGameOverCall);
-      else if (engine === 'web') success = speakWithWebSpeech(text, nextKanaUpdate, isGameOverCall);
+      if (engine === 'gemini') success = await speakWithGemini(text, inst, nextKanaUpdate, isGameOverCall, ttsOverride);
+      else if (engine === 'gcp') success = await speakWithGCP(text, inst, nextKanaUpdate, isGameOverCall, ttsOverride);
+      else if (engine === 'web') success = speakWithWebSpeech(text, nextKanaUpdate, isGameOverCall, ttsOverride);
       
       if (success) return;
     }
@@ -722,7 +723,11 @@ function WordGame() {
         setGameResult(nextA >= MAX_AROUSAL ? 'win' : 'lose');
         speak(result.feedback, "絶頂", null, true);
       } else {
-        speak(`${result.feedback} ……「${result.word}」よ。`, result.tts_instruction, nextK, false);
+        // tts_text があれば TTS 専用テキスト（ふりがな置換済み）を使用、なければ feedback にフォールバック
+        const ttsOverride = result.tts_text
+          ? `${result.tts_text} ……「${result.word_reading || result.word}」よ。`
+          : null;
+        speak(`${result.feedback} ……「${result.word}」よ。`, result.tts_instruction, nextK, false, ttsOverride);
       }
     } catch (e) {
       console.error(e);
