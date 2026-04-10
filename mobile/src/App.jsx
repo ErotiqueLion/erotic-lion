@@ -202,6 +202,10 @@ function WordGame() {
   const geminiTtsQuotaRef = useRef(false);
   // 通知トーストの自動クローズ用タイマー
   const notifyTimerRef = useRef(null);
+  // iOS Safari: AudioContext（ユーザージェスチャーで unlock して使い回す）
+  const audioCtxRef = useRef(null);
+  // iOS Safari: 音声認識の自動リトライフラグ（初回 'aborted' 対応）
+  const recognitionRetriedRef = useRef(false);
   // BGM 再生用
   const bgmRef = useRef(null);
   // プレイヤーが選択したカスタム曲のオブジェクトURL
@@ -258,6 +262,20 @@ function WordGame() {
   }, []);
 
 
+  // iOS Safari: ユーザージェスチャー内で AudioContext を unlock する
+  const ensureAudioContext = () => {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+    } catch (e) {
+      console.warn("AudioContext init failed:", e);
+    }
+  };
+
   const initRecognition = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -289,7 +307,14 @@ function WordGame() {
             handlePlayerInput(lastText);
         }
       };
-      recognition.onerror = () => setIsListening(false);
+      recognition.onerror = (e) => {
+        setIsListening(false);
+        // iOS Safari: 初回の音声認識で 'aborted' が発生する既知の問題。一度だけ自動リトライ
+        if (e.error === 'aborted' && !recognitionRetriedRef.current) {
+          recognitionRetriedRef.current = true;
+          setTimeout(() => { initRecognition(); recognitionRef.current?.start(); }, 300);
+        }
+      };
       recognitionRef.current = recognition;
       return true;
     }
@@ -372,19 +397,35 @@ function WordGame() {
       if (data.error) throw new Error(data.error.message);
       if (data.audioContent) {
         if (currentAudioRef.current) currentAudioRef.current.pause();
-        // テロップと次カナは音声成否に関わらず即時表示（iOS で onplay が発火しない場合も対応）
+        // テロップと次カナは音声成否に関わらず即時表示
         setAiResponseText(text);
         if (nextKanaUpdate) setDisplayKana(nextKanaUpdate);
-        const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
-        currentAudioRef.current = audio;
-        audio.playbackRate = 1.0;
-        if (stateRef.current.arousal > 70) audio.playbackRate = 1.05;
-        audio.onended = () => {
+
+        // iOS Safari: AudioContext で MP3 を再生（new Audio が非同期でブロックされる対策）
+        try {
+          const binary = atob(data.audioContent);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const ctx = audioCtxRef.current || new (window.AudioContext || window.webkitAudioContext)();
+          audioCtxRef.current = ctx;
+          if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
+          const audioBuffer = await ctx.decodeAudioData(bytes.buffer);
+          const source = ctx.createBufferSource();
+          source.buffer = audioBuffer;
+          source.playbackRate.value = stateRef.current.arousal > 70 ? 1.05 : 1.0;
+          source.connect(ctx.destination);
+          source.onended = () => {
+            setIsSpeaking(false); isBusyRef.current = false;
+            if (isGameOverCall) setGameState('gameover');
+          };
+          source.start(0);
+          currentAudioRef.current = { pause: () => { try { source.stop(); } catch (e) {} } };
+          return true;
+        } catch (audioErr) {
+          console.warn("GCP TTS AudioContext playback failed:", audioErr);
+          // フォールバック: isBusy をリセットしてフリーズを防ぐ
           setIsSpeaking(false); isBusyRef.current = false;
-          if (isGameOverCall) setGameState('gameover');
-        };
-        audio.play();
-        return true;
+        }
       }
     } catch (e) {
       console.warn("GCP TTS failed:", e.message);
@@ -433,23 +474,41 @@ function WordGame() {
       }
       if (pcm) {
         if (currentAudioRef.current) currentAudioRef.current.pause();
-        // テロップと次カナは音声成否に関わらず即時表示（iOS で onplay が発火しない場合も対応）
+        // テロップと次カナは音声成否に関わらず即時表示
         setAiResponseText(text);
         if (nextKanaUpdate) setDisplayKana(nextKanaUpdate);
-        // Blob URL は iOS で非同期再生がブロックされるため data URI に変換（全環境共通・音質変化なし）
-        const dataUri = await new Promise(resolve => {
-          const r = new FileReader();
-          r.onload = e => resolve(e.target.result);
-          r.readAsDataURL(pcmToWav(pcm));
-        });
-        const audio = new Audio(dataUri);
-        currentAudioRef.current = audio;
-        audio.onended = () => {
+
+        // iOS Safari: non Audio().play() が非同期でブロックされるため AudioContext で再生
+        try {
+          const pcmBinary = atob(pcm);
+          const pcmBytes = new Uint8Array(pcmBinary.length);
+          for (let i = 0; i < pcmBinary.length; i++) pcmBytes[i] = pcmBinary.charCodeAt(i);
+          const float32 = new Float32Array(pcmBytes.length / 2);
+          for (let i = 0; i < float32.length; i++) {
+            const lo = pcmBytes[i * 2], hi = pcmBytes[i * 2 + 1];
+            const s = (hi << 8) | lo;
+            float32[i] = (s >= 0x8000 ? s - 0x10000 : s) / 32768;
+          }
+          const ctx = audioCtxRef.current || new (window.AudioContext || window.webkitAudioContext)();
+          audioCtxRef.current = ctx;
+          if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
+          const buffer = ctx.createBuffer(1, float32.length, 24000);
+          buffer.copyToChannel(float32, 0);
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(ctx.destination);
+          source.onended = () => {
+            setIsSpeaking(false); isBusyRef.current = false;
+            if (isGameOverCall) setGameState('gameover');
+          };
+          source.start(0);
+          currentAudioRef.current = { pause: () => { try { source.stop(); } catch (e) {} } };
+          return true;
+        } catch (audioErr) {
+          console.warn("AudioContext playback failed:", audioErr);
+          // フォールバック: isBusy をリセットしてフリーズを防ぐ
           setIsSpeaking(false); isBusyRef.current = false;
-          if (isGameOverCall) setGameState('gameover');
-        };
-        audio.play();
-        return true;
+        }
       }
     } catch (e) {
       if (e.message?.includes('quota') || e.message?.includes('429')) {
@@ -1174,9 +1233,10 @@ function WordGame() {
       {(gameState === 'ready' || gameState === 'gameover') && (
         <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
           <h2 className="text-3xl sm:text-4xl font-black mb-8 text-center px-4">{gameState === 'gameover' ? (gameResult === 'win' ? '逝っちゃた、貴方の勝ちよ！' : 'GAME OVER') : 'READY?'}</h2>
-          <button onClick={() => { 
+          <button onClick={() => {
+            ensureAudioContext(); // iOS Safari: ユーザージェスチャーで AudioContext を unlock
             setAiResponseText(''); setPlayerInputText('');
-            setGameState('playing'); setArousal(0); setHistory([]); setDisplayKana(startKanaSetting); 
+            setGameState('playing'); setArousal(0); setHistory([]); setDisplayKana(startKanaSetting);
             speak(`始めましょう。最初は「${startKanaSetting}」からよ。`, "妖艶に");
           }} className="px-12 py-4 bg-pink-600 rounded-full font-bold text-lg shadow-2xl hover:scale-105 transition-transform">
             {gameState === 'gameover' ? 'もう一度' : '遊びましょ♡'}
@@ -1227,6 +1287,7 @@ function WordGame() {
                 <button
                   onClick={() => {
                     if (inputText.trim() && !isSpeaking && !isThinking) {
+                      ensureAudioContext(); // iOS Safari: テキスト送信時も AudioContext を unlock
                       setAiResponseText('');
                       handlePlayerInput(inputText.trim());
                       setInputText("");
@@ -1253,6 +1314,8 @@ function WordGame() {
                     if (isListening) {
                       recognitionRef.current?.stop();
                     } else {
+                      ensureAudioContext(); // iOS Safari: マイクボタンでも AudioContext を unlock
+                      recognitionRetriedRef.current = false; // 明示タップ時はリトライフラグをリセット
                       setAiResponseText(''); setPlayerInputText('');
                       // iOS Safari は同一インスタンスの再起動が不安定なため毎回新規作成
                       initRecognition();
