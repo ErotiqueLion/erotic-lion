@@ -58,7 +58,7 @@ const INITIAL_CHARACTERS = {
     },
     color: "#f97316",
     voice: "Leda", 
-    gcpVoice: "ja-JP-Neural2-F",
+    gcpVoice: "ja-JP-Neural2-B",
     prompt: "あなたはからかい上手な小悪魔ですが、攻められた言葉の「エッチさ」に当てられて、次第に我慢できない状態に陥っていく様子を色っぽく表現してください。"
   }
 };
