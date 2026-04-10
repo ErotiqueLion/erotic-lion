@@ -943,8 +943,9 @@ function WordGame() {
   }
 
   const currentChar = charConfigs[selectedCharKey];
-  const blurValue = Math.max(0, 10 - (arousal * 0.1));
-  const clothesOpacity = Math.max(0, 1 - (arousal / 80));
+  // 欲情度70%から通常→欲情画像へのエフェクト開始
+  const blurValue = Math.max(0, 10 - Math.max(0, (arousal - 70) / 3));
+  const clothesOpacity = Math.max(0, 1 - Math.max(0, (arousal - 70) / 30));
 
   return (
     <div className={`fixed top-0 left-0 right-0 h-dvh bg-black text-white flex flex-col overflow-hidden font-sans ${arousal > 90 ? 'screen-shake' : ''}`} style={{ '--shake-speed': `${Math.max(0.15, 0.4 - (arousal - 90) / 100)}s` }}>
