@@ -28,10 +28,17 @@ jobs:
       - run: npm run build
         working-directory: kai
 
+      # EroticWordChain モバイル版ビルド
+      - run: npm install
+        working-directory: mobile
+      - run: npm run build
+        working-directory: mobile
+
       - name: Prepare deploy directory
         run: |
           mkdir -p _deploy/games/erotic-word-chain
           mkdir -p _deploy/games/erotic-word-chain-kai
+          mkdir -p _deploy/games/erotic-word-chain-mobile
 
           # ポータル index.html を配置
           cp _portal/index.html _deploy/index.html
@@ -47,16 +54,24 @@ jobs:
           # 改ビルドを games/erotic-word-chain-kai/ に配置
           cp -r kai/dist/. _deploy/games/erotic-word-chain-kai/
 
-          # games/erotic-word-chain.html → games/erotic-word-chain/ へのリダイレクト
+          # モバイルビルドを games/erotic-word-chain-mobile/ に配置
+          cp -r mobile/dist/. _deploy/games/erotic-word-chain-mobile/
+
+          # games/erotic-word-chain.html → デバイス判定で PC版 or モバイル版へリダイレクト
           cat > _deploy/games/erotic-word-chain.html << 'EOF'
           <!DOCTYPE html>
           <html lang="ja">
           <head>
             <meta charset="UTF-8">
-            <meta http-equiv="refresh" content="0;url=./erotic-word-chain/">
           </head>
           <body>
-            <script>location.replace('./erotic-word-chain/');</script>
+            <script>
+              if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 768) {
+                location.replace('./erotic-word-chain-mobile/');
+              } else {
+                location.replace('./erotic-word-chain/');
+              }
+            </script>
           </body>
           </html>
           EOF
