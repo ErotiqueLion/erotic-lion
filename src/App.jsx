@@ -372,12 +372,10 @@ function WordGame() {
       if (data.error) throw new Error(data.error.message);
       if (data.audioContent) {
         if (currentAudioRef.current) currentAudioRef.current.pause();
-        // テロップと次カナは音声成否に関わらず即時表示（iOS で onplay が発火しない場合も対応）
-        setAiResponseText(text);
-        if (nextKanaUpdate) setDisplayKana(nextKanaUpdate);
         const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
         currentAudioRef.current = audio;
-        audio.playbackRate = 1.0;
+        audio.onplay = () => { setAiResponseText(text); if (nextKanaUpdate) setDisplayKana(nextKanaUpdate); };
+        audio.playbackRate = 1.0; 
         if (stateRef.current.arousal > 70) audio.playbackRate = 1.05;
         audio.onended = () => {
           setIsSpeaking(false); isBusyRef.current = false;
@@ -433,17 +431,9 @@ function WordGame() {
       }
       if (pcm) {
         if (currentAudioRef.current) currentAudioRef.current.pause();
-        // テロップと次カナは音声成否に関わらず即時表示（iOS で onplay が発火しない場合も対応）
-        setAiResponseText(text);
-        if (nextKanaUpdate) setDisplayKana(nextKanaUpdate);
-        // Blob URL は iOS で非同期再生がブロックされるため data URI に変換（全環境共通・音質変化なし）
-        const dataUri = await new Promise(resolve => {
-          const r = new FileReader();
-          r.onload = e => resolve(e.target.result);
-          r.readAsDataURL(pcmToWav(pcm));
-        });
-        const audio = new Audio(dataUri);
+        const audio = new Audio(URL.createObjectURL(pcmToWav(pcm)));
         currentAudioRef.current = audio;
+        audio.onplay = () => { setAiResponseText(text); if (nextKanaUpdate) setDisplayKana(nextKanaUpdate); };
         audio.onended = () => {
           setIsSpeaking(false); isBusyRef.current = false;
           if (isGameOverCall) setGameState('gameover');
@@ -1249,15 +1239,9 @@ function WordGame() {
             ) : (
               <div className="flex-1 flex justify-center items-center gap-4">
                 <button 
-                  onClick={() => {
-                    if (isListening) {
-                      recognitionRef.current?.stop();
-                    } else {
-                      setAiResponseText(''); setPlayerInputText('');
-                      // iOS Safari は同一インスタンスの再起動が不安定なため毎回新規作成
-                      initRecognition();
-                      recognitionRef.current?.start();
-                    }
+                  onClick={() => { 
+                    if(isListening) recognitionRef.current?.stop(); 
+                    else { setAiResponseText(''); setPlayerInputText(''); recognitionRef.current?.start(); } 
                   }} 
                   disabled={isSpeaking || isThinking || isBusyRef.current} 
                   className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${isListening ? 'bg-red-500 animate-pulse shadow-lg shadow-red-500/50' : 'bg-zinc-100 text-black shadow-xl hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed'}`}
