@@ -29,8 +29,8 @@ const INITIAL_CHARACTERS = {
     name: "麗華",
     description: "包容力のある成熟したお姉さん",
     images: {
-      clothed: "/Photo/麗華_befor.png",
-      unveiled: "/Photo/麗華_after.png",
+      clothed: `${import.meta.env.BASE_URL}Photo/麗華_befor.png`,
+      unveiled: `${import.meta.env.BASE_URL}Photo/麗華_after.png`,
     },
     color: "#ec4899",
     voice: "Kore", 
@@ -41,8 +41,8 @@ const INITIAL_CHARACTERS = {
     name: "静香",
     description: "冷徹で気高い氷の令嬢",
     images: {
-      clothed: "/Photo/静香_befor.png",
-      unveiled: "/Photo/静香_after.png",
+      clothed: `${import.meta.env.BASE_URL}Photo/静香_befor.png`,
+      unveiled: `${import.meta.env.BASE_URL}Photo/静香_after.png`,
     },
     color: "#3b82f6",
     voice: "Aoede", 
@@ -53,8 +53,8 @@ const INITIAL_CHARACTERS = {
     name: "真凛",
     description: "からかい上手な小悪魔系",
     images: {
-      clothed: "/Photo/真凛_before.jpeg",
-      unveiled: "/Photo/真凛_after.jpeg",
+      clothed: `${import.meta.env.BASE_URL}Photo/真凛_before.jpeg`,
+      unveiled: `${import.meta.env.BASE_URL}Photo/真凛_after.jpeg`,
     },
     color: "#f97316",
     voice: "Leda", 
