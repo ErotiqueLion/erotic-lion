@@ -402,7 +402,7 @@ function WordGame() {
       // TTS プロンプトは感情指示とセリフのみ（欲情度・過激表現を含めると空レスポンスになる）
       const ttsPrompt = `次のセリフを「${inst || '自然に'}」という感情で読んでください：${cleanText}`;
 
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-tts:generateContent?key=${geminiApiKey}`, {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
