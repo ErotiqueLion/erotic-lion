@@ -2,9 +2,14 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0;url=./erotic-word-chain/">
 </head>
 <body>
-  <script>location.replace('./erotic-word-chain/');</script>
+  <script>
+    if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 768) {
+      location.replace('./erotic-word-chain-mobile/');
+    } else {
+      location.replace('./erotic-word-chain/');
+    }
+  </script>
 </body>
 </html>
