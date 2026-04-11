@@ -176,9 +176,10 @@ function WordGame() {
         if (vol >= targetVol) clearInterval(fadeIn);
       }, 100);
       return () => clearInterval(fadeIn);
-    } else {
+    } else if (gameState !== 'playing') {
       if (!bgmRef.current) return;
-      // フェードアウト（→ 0、約1秒）して停止
+      // ゲームオーバー等、playing 以外に遷移した場合のみフェードアウト
+      // playing 中は TTS 再生直前の stopBgmFast() で止める（間をなくすため）
       let vol = bgmRef.current.volume;
       const fadeOut = setInterval(() => {
         vol = Math.max(0, vol - 0.04);
@@ -356,6 +357,20 @@ function WordGame() {
     }
   };
 
+  // TTS 再生直前に BGM を高速フェードアウト（間をなくすため）
+  const stopBgmFast = () => {
+    if (!bgmRef.current || bgmRef.current.paused) return;
+    let vol = bgmRef.current.volume;
+    const fade = setInterval(() => {
+      vol = Math.max(0, vol - 0.04);
+      if (bgmRef.current) bgmRef.current.volume = vol;
+      if (vol <= 0) {
+        clearInterval(fade);
+        if (bgmRef.current) { bgmRef.current.pause(); bgmRef.current.currentTime = 0; }
+      }
+    }, 30); // 30ms ステップ（約200ms で完全停止）
+  };
+
   const speakWithWebSpeech = (text, nextKanaUpdate, isGameOverCall, ttsOverride = null) => {
     const cleanText = (ttsOverride || text).replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
     setAiResponseText(text);
@@ -373,6 +388,7 @@ function WordGame() {
       if (jaVoice) utter.voice = jaVoice;
       utter.onend = () => { setIsSpeaking(false); isBusyRef.current = false; if (isGameOverCall) setGameState('gameover'); };
       utter.onerror = () => { setIsSpeaking(false); isBusyRef.current = false; if (isGameOverCall) setGameState('gameover'); };
+      stopBgmFast();
       window.speechSynthesis.speak(utter);
       return true;
     }
@@ -419,6 +435,7 @@ function WordGame() {
             setIsSpeaking(false); isBusyRef.current = false;
             if (isGameOverCall) setGameState('gameover');
           };
+          stopBgmFast();
           source.start(0);
           currentAudioRef.current = { pause: () => { try { source.stop(); } catch (e) {} } };
           return true;
@@ -502,6 +519,7 @@ function WordGame() {
             setIsSpeaking(false); isBusyRef.current = false;
             if (isGameOverCall) setGameState('gameover');
           };
+          stopBgmFast();
           source.start(0);
           currentAudioRef.current = { pause: () => { try { source.stop(); } catch (e) {} } };
           return true;
@@ -541,6 +559,8 @@ function WordGame() {
       if (success) return;
     }
     
+    // 全エンジン失敗時も BGM を止める
+    stopBgmFast();
     setIsSpeaking(false); isBusyRef.current = false;
   };
 
