@@ -8,7 +8,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <!-- 最初の画像を優先プリロード -->
-    <link rel="preload" as="image" href="/erotic-lion/img/TOP.webp">
+    <link rel="preload" as="image" href="/erotic-lion/img/TOP.webp" media="(min-width: 768px)">
+    <link rel="preload" as="image" href="/erotic-lion/img/TOP_mob.webp" media="(max-width: 767px)">
     <style>
         :root {
             --bg:      #0d0008;
@@ -71,7 +72,12 @@
         #top-wrap {
             position: relative;
             width: 100%;
+            /* PC: 横長 2760x1504 */
             aspect-ratio: 2760 / 1504;
+        }
+        /* モバイル: 縦長 1536x2752 */
+        @media (max-width: 767px) {
+            #top-wrap { aspect-ratio: 1536 / 2752; }
         }
         #top-img {
             position: absolute;
@@ -84,7 +90,7 @@
             position: absolute;
             inset: 0;
         }
-        /* START THE SHOW サインに重ねる透明ボタン（赤枠実測値） */
+        /* START THE SHOW サインに重ねる透明ボタン（PC: 赤枠実測値） */
         #btn-start {
             position: absolute;
             left: 40.22%;
@@ -101,6 +107,15 @@
             background: rgba(201, 168, 76, 0.10);
             border-color: rgba(201, 168, 76, 0.55);
             box-shadow: 0 0 18px rgba(201, 168, 76, 0.25);
+        }
+        /* モバイル用ボタン位置（赤枠実測値） */
+        @media (max-width: 767px) {
+            #btn-start {
+                left: 24.80%;
+                top: 90.95%;
+                width: 50.72%;
+                height: 3.78%;
+            }
         }
         /* Quit リンク（右下・控えめ） */
         #top-quit {
@@ -394,7 +409,10 @@
 <!-- ========== TOP 画面 ========== -->
 <div id="screen-top" class="screen">
     <div id="top-wrap">
-        <img id="top-img" src="/erotic-lion/img/TOP.webp" alt="The Dark Carnival">
+        <picture>
+            <source media="(max-width: 767px)" srcset="/erotic-lion/img/TOP_mob.webp">
+            <img id="top-img" src="/erotic-lion/img/TOP.webp" alt="The Dark Carnival">
+        </picture>
         <div id="top-overlay">
             <!-- 画像内の START THE SHOW サインに重ねる透明クリック領域 -->
             <button id="btn-start" onclick="goToPw()" aria-label="Start the Show"></button>
