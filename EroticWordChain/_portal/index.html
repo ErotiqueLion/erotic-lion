@@ -202,28 +202,13 @@
             width: 90%;
         }
         #pw-ui .pw-title {
-            font-family: 'Cinzel', serif;
-            font-size: 0.65rem;
-            letter-spacing: 6px;
-            color: var(--subtext);
-            text-transform: uppercase;
-            margin-bottom: 24px;
+            font-family: 'Noto Serif JP', Georgia, serif;
+            font-size: clamp(1.4rem, 3vw, 2.2rem);
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            color: var(--accent);
+            margin-bottom: 28px;
         }
-        #pw-ui .pw-dial {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .pw-dot {
-            width: 18px;
-            height: 18px;
-            border: 1px solid var(--accent);
-            border-radius: 50%;
-            background: transparent;
-            transition: background 0.2s;
-        }
-        .pw-dot.filled { background: var(--accent); }
         #pw-input {
             width: 100%;
             background: rgba(0,0,0,0.5);
@@ -414,13 +399,7 @@
 <!-- ========== パスワード画面 ========== -->
 <div id="screen-pw" class="screen">
     <div id="pw-ui">
-        <p class="pw-title">秘密の鍵 (Password) Required</p>
-        <div class="pw-dial">
-            <span class="pw-dot" id="dot0"></span>
-            <span class="pw-dot" id="dot1"></span>
-            <span class="pw-dot" id="dot2"></span>
-            <span class="pw-dot" id="dot3"></span>
-        </div>
+        <p class="pw-title">秘密の鍵</p>
         <input
             id="pw-input"
             type="password"
@@ -501,12 +480,8 @@
         document.getElementById('screen-' + id).classList.add('active');
     }
 
-    // ── パスワード入力のダイヤル更新 ──
+    // ── パスワード入力時のエラークリア ──
     function updateDots() {
-        const len = document.getElementById('pw-input').value.length;
-        for (let i = 0; i < 4; i++) {
-            document.getElementById('dot' + i).classList.toggle('filled', i < len);
-        }
         document.getElementById('pw-error').textContent = '';
     }
 
