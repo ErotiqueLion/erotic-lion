@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <!-- 最初の画像を優先プリロード -->
-    <link rel="preload" as="image" href="/erotic-lion/img/1.Opening.webp">
+    <link rel="preload" as="image" href="/erotic-lion/img/TOP.webp">
     <style>
         :root {
             --bg:      #0d0008;
@@ -59,11 +59,64 @@
         }
         .screen > * { position: relative; z-index: 1; }
 
-        /* ── TOP 画面 ── */
+        /* ── TOP 画面（img オーバーレイ方式） ── */
         #screen-top {
-            background-image: url('/erotic-lion/img/1.Opening.webp');
-            justify-content: flex-end;
+            background-image: none;
+            justify-content: flex-start;
+            align-items: flex-start;
+            padding: 0;
         }
+        #screen-top::before { display: none; }
+
+        #top-wrap {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 2760 / 1504;
+        }
+        #top-img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        #top-overlay {
+            position: absolute;
+            inset: 0;
+        }
+        /* START THE SHOW サインに重ねる透明ボタン */
+        #btn-start {
+            position: absolute;
+            left: 33%;
+            top: 78%;
+            width: 34%;
+            height: 12%;
+            background: transparent;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: border-color 0.35s, background 0.35s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #btn-start:hover {
+            background: rgba(201, 168, 76, 0.10);
+            border-color: rgba(201, 168, 76, 0.55);
+            box-shadow: 0 0 18px rgba(201, 168, 76, 0.25);
+        }
+        /* Quit リンク（右下・控えめ） */
+        #top-quit {
+            position: absolute;
+            bottom: 3%;
+            right: 2.5%;
+            font-family: 'Cinzel', serif;
+            font-size: clamp(8px, 1.0vw, 13px);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(158, 143, 122, 0.45);
+            cursor: pointer;
+            transition: color 0.3s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #top-quit:hover { color: rgba(201, 168, 76, 0.75); }
 
         /* ── パスワード画面 ── */
         #screen-pw {
@@ -348,10 +401,12 @@
 
 <!-- ========== TOP 画面 ========== -->
 <div id="screen-top" class="screen">
-    <div id="top-ui">
-        <div class="btn-row">
-            <button class="btn" onclick="goToPw()">Start the Show</button>
-            <button class="btn secondary" onclick="handleQuit()">Quit</button>
+    <div id="top-wrap">
+        <img id="top-img" src="/erotic-lion/img/TOP.webp" alt="The Dark Carnival">
+        <div id="top-overlay">
+            <!-- 画像内の START THE SHOW サインに重ねる透明クリック領域 -->
+            <button id="btn-start" onclick="goToPw()" aria-label="Start the Show"></button>
+            <div id="top-quit" onclick="handleQuit()">Quit</div>
         </div>
     </div>
 </div>
