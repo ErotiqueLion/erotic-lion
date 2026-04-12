@@ -208,18 +208,22 @@
            ゲーム選択画面 — img + オーバーレイ方式
            ════════════════════════════════════════ */
 
-        /* 画像とカードを包むコンテナ */
+        /* 画像とカードを包むコンテナ（アスペクト比を明示してパーセント高さを確定） */
         #select-wrap {
             position: relative;
             width: 100%;
             flex-shrink: 0;
+            /* 2760:1504 = 原画像のアスペクト比 */
+            aspect-ratio: 2760 / 1504;
         }
 
-        /* 背景画像（アスペクト比を維持するため img タグ） */
+        /* 背景画像（コンテナを満たす） */
         #select-img {
-            display: block;
+            position: absolute;
+            inset: 0;
             width: 100%;
-            height: auto;
+            height: 100%;
+            display: block;
         }
 
         /* カードオーバーレイ全体 */
