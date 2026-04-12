@@ -65,12 +65,13 @@ jobs:
           # モバイルビルドを games/erotic-word-chain-mobile/ に配置
           cp -r EroticWordChain/mobile/dist/. _deploy/games/erotic-word-chain-mobile/
 
-          # games/erotic-word-chain.html → デバイス判定で PC版 or モバイル版へリダイレクト
+          # games/erotic-word-chain.html → 認証確認後にデバイス判定でリダイレクト
           cat > _deploy/games/erotic-word-chain.html << 'EOF'
           <!DOCTYPE html>
           <html lang="ja">
           <head>
             <meta charset="UTF-8">
+            <script>if(sessionStorage.getItem('portal_unlocked')!=='1')location.replace('/erotic-lion/');</script>
           </head>
           <body>
             <script>
@@ -84,12 +85,13 @@ jobs:
           </html>
           EOF
 
-          # games/erotic-word-chain-kai.html → games/erotic-word-chain-kai/ へのリダイレクト
+          # games/erotic-word-chain-kai.html → 認証確認後にリダイレクト
           cat > _deploy/games/erotic-word-chain-kai.html << 'EOF'
           <!DOCTYPE html>
           <html lang="ja">
           <head>
             <meta charset="UTF-8">
+            <script>if(sessionStorage.getItem('portal_unlocked')!=='1')location.replace('/erotic-lion/');</script>
             <meta http-equiv="refresh" content="0;url=./erotic-word-chain-kai/">
           </head>
           <body>
