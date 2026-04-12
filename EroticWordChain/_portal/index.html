@@ -118,11 +118,108 @@
         }
         #top-quit:hover { color: rgba(201, 168, 76, 0.75); }
 
-        /* ── パスワード画面 ── */
+        /* ── パスワード画面（img オーバーレイ方式） ── */
         #screen-pw {
-            background-image: url('/erotic-lion/img/2.key.webp');
-            justify-content: center;
+            background-image: none;
+            justify-content: flex-start;
+            align-items: flex-start;
+            padding: 0;
         }
+        #screen-pw::before { display: none; }
+
+        #pw-wrap {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 2760 / 1504;
+        }
+        #pw-img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        #pw-overlay {
+            position: absolute;
+            inset: 0;
+        }
+
+        /* パスワード入力フィールド（赤枠実測: left=45.43%, top=53.52%, w=13.41%, h=4.39%） */
+        #pw-input {
+            position: absolute;
+            left: 45.43%;
+            top: 53.52%;
+            width: 13.41%;
+            height: 4.39%;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: rgba(201, 168, 76, 0.0);
+            caret-color: var(--accent);
+            font-family: 'Cinzel', serif;
+            font-size: clamp(10px, 1.8vw, 22px);
+            letter-spacing: 0.25em;
+            text-align: center;
+            padding: 0;
+        }
+
+        /* エラー表示（入力欄の下） */
+        #pw-error {
+            position: absolute;
+            left: 40%;
+            top: 59%;
+            width: 20%;
+            font-family: 'Cinzel', serif;
+            font-size: clamp(7px, 0.9vw, 11px);
+            letter-spacing: 2px;
+            color: #c0392b;
+            text-align: center;
+        }
+
+        /* ENTER ボタン（赤枠実測: left=39.53%, top=87.63%, w=12.28%, h=5.45%） */
+        #btn-enter {
+            position: absolute;
+            left: 39.53%;
+            top: 87.63%;
+            width: 12.28%;
+            height: 5.45%;
+            background: transparent;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: border-color 0.3s, background 0.3s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #btn-enter:hover {
+            background: rgba(201, 168, 76, 0.12);
+            border-color: rgba(201, 168, 76, 0.55);
+        }
+
+        /* CANCEL ボタン（赤枠実測: left=53.19%, top=87.77%, w=11.74%, h=5.39%） */
+        #btn-cancel {
+            position: absolute;
+            left: 53.19%;
+            top: 87.77%;
+            width: 11.74%;
+            height: 5.39%;
+            background: transparent;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: border-color 0.3s, background 0.3s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #btn-cancel:hover {
+            background: rgba(201, 168, 76, 0.08);
+            border-color: rgba(158, 143, 122, 0.4);
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-8px); }
+            40% { transform: translateX(8px); }
+            60% { transform: translateX(-5px); }
+            80% { transform: translateX(5px); }
+        }
+        .shake { animation: shake 0.45s ease; }
 
         /* ── ゲーム選択画面 ──
            img タグで背景を管理するため background-image は使わない */
@@ -151,64 +248,6 @@
             z-index: 2;
         }
 
-        /* ── ボタン共通 ── */
-        .btn-row {
-            display: flex;
-            gap: 16px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-        .btn {
-            font-family: 'Cinzel', serif;
-            font-size: 0.85rem;
-            letter-spacing: 4px;
-            text-transform: uppercase;
-            padding: 14px 32px;
-            min-height: 48px;
-            border: 1px solid var(--accent);
-            background: rgba(13, 0, 8, 0.7);
-            color: var(--accent);
-            cursor: pointer;
-            transition: background 0.3s, color 0.3s;
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .btn:hover {
-            background: var(--accent);
-            color: var(--bg);
-        }
-        .btn.secondary {
-            border-color: rgba(201,168,76,0.4);
-            color: var(--subtext);
-        }
-        .btn.secondary:hover {
-            background: rgba(201,168,76,0.15);
-            color: var(--text);
-        }
-
-        /* ── TOP 画面内UI ── */
-        #top-ui {
-            text-align: center;
-            padding-bottom: 6vh;
-        }
-
-        /* ── パスワード画面内UI ── */
-        #pw-ui {
-            text-align: center;
-            background: rgba(13, 0, 8, 0.75);
-            border: 1px solid var(--border);
-            padding: 36px 40px;
-            max-width: 360px;
-            width: 90%;
-        }
-        #pw-ui .pw-title {
-            font-family: 'Noto Serif JP', Georgia, serif;
-            font-size: clamp(1.4rem, 3vw, 2.2rem);
-            font-weight: 700;
-            letter-spacing: 0.12em;
-            color: var(--accent);
-            margin-bottom: 28px;
-        }
         #pw-input {
             width: 100%;
             background: rgba(0,0,0,0.5);
@@ -398,21 +437,24 @@
 
 <!-- ========== パスワード画面 ========== -->
 <div id="screen-pw" class="screen">
-    <div id="pw-ui">
-        <p class="pw-title">秘密の鍵</p>
-        <input
-            id="pw-input"
-            type="password"
-            inputmode="numeric"
-            maxlength="4"
-            autocomplete="off"
-            oninput="updateDots()"
-            onkeydown="if(event.key==='Enter') handleEnter()"
-        />
-        <p id="pw-error"></p>
-        <div class="btn-row">
-            <button class="btn" onclick="handleEnter()">Enter</button>
-            <button class="btn secondary" onclick="showScreen('top')">Cancel</button>
+    <div id="pw-wrap">
+        <img id="pw-img" src="/erotic-lion/img/2.key.webp" alt="">
+        <div id="pw-overlay">
+            <!-- パスワード入力（画像のダイヤル表示エリアに重ねる） -->
+            <input
+                id="pw-input"
+                type="password"
+                inputmode="numeric"
+                maxlength="4"
+                autocomplete="off"
+                oninput="updateDots()"
+                onkeydown="if(event.key==='Enter') handleEnter()"
+            />
+            <p id="pw-error"></p>
+            <!-- ENTER ボタン -->
+            <button id="btn-enter" onclick="handleEnter()" aria-label="Enter"></button>
+            <!-- CANCEL ボタン -->
+            <button id="btn-cancel" onclick="showScreen('top')" aria-label="Cancel"></button>
         </div>
     </div>
 </div>
