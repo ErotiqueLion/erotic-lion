@@ -1,38 +1,7 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
-
-# APIキー等の機密ファイル
-key.txt
-*.key
-.env
-.env.*
-
-# 機密フォルダ（絶対にpushしないこと）
 Secret/
-Secret/**
-
-# ローカル専用ファイル
-ローカル実行.txt
 .claude/
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+**/node_modules/
+**/dist/
+*.key
+*.env
+.env

@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ja" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APIキー取得ガイド - ゲームヘルプ</title>
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons (CDN) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* カスタムスクロールバー */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+        /* コンテンツ内の画像プレースホルダー用スタイル */
+        .image-placeholder {
+            background: repeating-linear-gradient(
+                45deg,
+                #1f2937,
+                #1f2937 10px,
+                #111827 10px,
+                #111827 20px
+            );
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 font-sans h-screen flex overflow-hidden selection:bg-indigo-500 selection:text-white">
+
+    <!-- モバイル用ヘッダー (Hamburger Menu) -->
+    <div class="md:hidden fixed top-0 left-0 right-0 h-16 bg-gray-800 border-b border-gray-700 z-50 flex items-center px-4">
+        <button id="mobile-menu-btn" class="p-2 text-gray-400 hover:text-white focus:outline-none">
+            <i data-lucide="menu"></i>
+        </button>
+        <span class="ml-4 font-bold text-lg text-white">設定ヘルプマニュアル</span>
+    </div>
+
+    <!-- サイドバー (ナビゲーション) -->
+    <aside id="sidebar" class="w-64 bg-gray-800 border-r border-gray-700 h-full flex-shrink-0 absolute md:relative transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out z-40 pt-16 md:pt-0">
+        <div class="p-6">
+            <h1 class="text-xl font-bold text-indigo-400 flex items-center gap-2 mb-8">
+                <i data-lucide="gamepad-2"></i>
+                API設定ヘルプ
+            </h1>
+            <nav class="space-y-2">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-4">はじめに</p>
+                <a href="#intro" class="nav-link block px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition">事前準備</a>
+                
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-6">AI会話設定</p>
+                <a href="#gemini-api" class="nav-link block px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition flex items-center justify-between">
+                    <span>Gemini APIキー</span>
+                    <i data-lucide="sparkles" class="w-4 h-4 text-purple-400"></i>
+                </a>
+                
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-6">音声読み上げ設定</p>
+                <a href="#tts-api" class="nav-link block px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition flex items-center justify-between">
+                    <span>Cloud TTS APIキー</span>
+                    <i data-lucide="mic" class="w-4 h-4 text-blue-400"></i>
+                </a>
+                
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-6">その他</p>
+                <a href="#trouble" class="nav-link block px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition">よくある質問</a>
+            </nav>
+        </div>
+    </aside>
+
+    <!-- メインコンテンツ -->
+    <main class="flex-1 h-full overflow-y-auto scroll-smooth pt-16 md:pt-0 pb-20">
+        <div class="max-w-4xl mx-auto p-6 md:p-10">
+            
+            <!-- イントロダクション -->
+            <section id="intro" class="mb-16 pt-8">
+                <div class="bg-indigo-900/30 border border-indigo-500/30 rounded-xl p-6 md:p-8">
+                    <h2 class="text-3xl font-bold text-white mb-4">APIキーの設定について</h2>
+                    <p class="text-gray-300 leading-relaxed mb-4">
+                        このWebゲームをフルに楽しむ（キャラクターとのAI会話や、フルボイスの音声読み上げ機能）ためには、Googleが提供する「APIキー」というパスワードのようなものが必要です。<br>
+                        このページでは、初心者の方でも迷わず取得できるように、手順を画像付きで解説します。
+                    </p>
+                    <div class="bg-gray-900/50 rounded-lg p-4 flex items-start gap-3 mt-6">
+                        <i data-lucide="info" class="w-6 h-6 text-indigo-400 flex-shrink-0 mt-0.5"></i>
+                        <div>
+                            <h3 class="font-bold text-indigo-300">必要なもの（事前準備）</h3>
+                            <p class="text-sm text-gray-400 mt-1">
+                                ・<strong class="text-gray-200">Googleアカウント</strong>（普段お使いのGmailアドレスでOKです）<br>
+                                ・クレジットカード（※Cloud Text-to-Speech取得時のみ、本人確認用として登録が必要です。無料枠内であれば課金はされません）
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Gemini API 取得手順 -->
+            <section id="gemini-api" class="mb-20">
+                <div class="flex items-center gap-3 mb-8">
+                    <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                        <i data-lucide="sparkles" class="w-6 h-6 text-purple-400"></i>
+                    </div>
+                    <h2 class="text-3xl font-bold text-white">Gemini APIキーの取得手順</h2>
+                </div>
+                <p class="text-gray-400 mb-8">キャラクターとAI会話をするためのキーです。Google Cloud Consoleを使用して「Gemini API」を有効にし、キーを取得します。</p>
+
+                <!-- Step 1 -->
+                <div class="relative pl-10 md:pl-16 mb-12">
+                    <div class="absolute left-0 top-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center shadow-lg">1</div>
+                    <h3 class="text-xl font-bold text-gray-200 mb-3">Google Cloud Consoleにログイン</h3>
+                    <p class="text-gray-400 mb-4">以下のリンクから「Google Cloud Console」にアクセスし、Googleアカウントでログインします。<br>
+                    <a href="https://console.cloud.google.com/" class="text-indigo-400 hover:text-indigo-300 underline font-medium" target="_blank" rel="noopener noreferrer">Google Cloud Consoleを開く (別タブ)</a></p>
+                    <p class="text-gray-400 mb-4">初めて利用する場合は、利用規約の同意画面が表示されます。居住国（日本）を選択し、利用規約にチェックを入れて「同意して続行」を押します。</p>
+                    
+                    <div class="image-placeholder w-full h-48 md:h-64 rounded-xl border border-gray-700 flex flex-col items-center justify-center text-center p-4">
+                        <i data-lucide="image" class="w-12 h-12 text-gray-500 mb-3"></i>
+                        <span class="text-gray-300 font-bold">[画像: Cloud Console 初回同意画面]</span>
+                        <span class="text-sm text-gray-500 mt-2">チェックボックスと「同意して続行」ボタンが強調されたスクリーンショット</span>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="relative pl-10 md:pl-16 mb-12">
+                    <div class="absolute left-0 top-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center shadow-lg">2</div>
+                    <h3 class="text-xl font-bold text-gray-200 mb-3">プロジェクトを作成する</h3>
+                    <p class="text-gray-400 mb-4">APIを利用するための「プロジェクト（箱のようなもの）」を作ります。<br>
+                    画面上部にある「プロジェクトの選択」をクリックし、右上の「新しいプロジェクト」を押します。<br>
+                    <span class="text-sm text-gray-500">※既に他のAPI用にプロジェクトを作成している場合は、それを選択してStep3へ進んでください。</span></p>
+                    
+                    <div class="image-placeholder w-full h-48 md:h-64 rounded-xl border border-gray-700 flex flex-col items-center justify-center text-center p-4">
+                        <i data-lucide="image" class="w-12 h-12 text-gray-500 mb-3"></i>
+                        <span class="text-gray-300 font-bold">[画像: プロジェクトの作成画面]</span>
+                        <span class="text-sm text-gray-500 mt-2">画面上部のバーと、プロジェクト名入力欄が強調されたスクリーンショット</span>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="relative pl-10 md:pl-16 mb-12">
+                    <div class="absolute left-0 top-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center shadow-lg">3</div>
+                    <h3 class="text-xl font-bold text-gray-200 mb-3">Gemini APIを有効にする</h3>
+                    <p class="text-gray-400 mb-4">画面上部の検索バー（🔍 検索欄）に「<strong>Gemini API</strong>」と入力して検索します。<br>
+                    検索結果から「Gemini API」を選び、青い<span class="bg-blue-600 text-white px-3 py-1 rounded shadow">有効にする</span>ボタンを押します。</p>
+
+                    <div class="image-placeholder w-full h-48 md:h-64 rounded-xl border border-gray-700 flex flex-col items-center justify-center text-center p-4">
+                        <i data-lucide="image" class="w-12 h-12 text-gray-500 mb-3"></i>
+                        <span class="text-gray-300 font-bold">[画像: APIライブラリ画面]</span>
+                        <span class="text-sm text-gray-500 mt-2">「Gemini API」の「有効にする」ボタンが強調されたスクリーンショット</span>
+                    </div>
+                </div>
+
+                <!-- Step 4 -->
+                <div class="relative pl-10 md:pl-16 mb-12">
+                    <div class="absolute left-0 top-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center shadow-lg">4</div>
+                    <h3 class="text-xl font-bold text-gray-200 mb-3">APIキーを作成してコピー</h3>
+                    <p class="text-gray-400 mb-4">APIが有効になったら、左側のメニュー（≡アイコン）から<br>
+                    <strong>「API とサービス」＞「認証情報」</strong>をクリックします。</p>
+                    <p class="text-gray-400 mb-4">画面上部の<span class="text-blue-400 font-bold">「＋ 認証情報を作成」</span>をクリックし、メニューから<strong>「APIキー」</strong>を選択します。</p>
+                    <p class="text-gray-400 mb-4">作成された長い英数字の文字列（APIキー）が表示されるので、コピーアイコンを押してコピーし、ゲームの設定画面に貼り付けてください。</p>
+
+                    <div class="image-placeholder w-full h-48 md:h-64 rounded-xl border border-gray-700 flex flex-col items-center justify-center text-center p-4">
+                        <i data-lucide="image" class="w-12 h-12 text-gray-500 mb-3"></i>
+                        <span class="text-gray-300 font-bold">[画像: APIキー生成完了画面]</span>
+                        <span class="text-sm text-gray-500 mt-2">「認証情報を作成」ドロップダウンと生成されたAPIキーが強調されたスクリーンショット</span>
+                    </div>
+                </div>
+            </section>
+
+            <hr class="border-gray-800 my-16">
+
+            <!-- Cloud Text-to-Speech API 取得手順 -->
+            <section id="tts-api" class="mb-20">
+                <div class="flex items-center gap-3 mb-8">
+                    <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                        <i data-lucide="mic" class="w-6 h-6 text-blue-400"></i>
+                    </div>
+                    <h2 class="text-3xl font-bold text-white">Cloud Text-to-Speech APIキーの取得手順</h2>
+                </div>
+                <p class="text-gray-400 mb-8">キャラクターのテキストを自然な音声で読み上げるためのキーです。少し手順が多いですが、順番通りに進めば大丈夫です。</p>
+
+                <!-- Step 1 -->
+                <div class="relative pl-10 md:pl-16 mb-12">
+                    <div class="absolute left-0 top-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center shadow-lg">1</div>
+                    <h3 class="text-xl font-bold text-gray-200 mb-3">Google Cloud Consoleにログイン</h3>
+                    <p class="text-gray-400 mb-4">以下のリンクから「Google Cloud Console」にアクセスし、Googleアカウントでログインします。<br>
+                    <a href="https://console.cloud.google.com/" class="text-indigo-400 hover:text-indigo-300 underline font-medium" target="_blank" rel="noopener noreferrer">Google Cloud Consoleを開く (別タブ)</a></p>
+                    <p class="text-gray-400 mb-4">初めて利用する場合は、利用規約の同意画面が表示されます。居住国（日本）を選択し、利用規約にチェックを入れて「同意して続行」を押します。</p>
+
+                    <div class="image-placeholder w-full h-48 md:h-64 rounded-xl border border-gray-700 flex flex-col items-center justify-center text-center p-4">
+                        <i data-lucide="image" class="w-12 h-12 text-gray-500 mb-3"></i>
+                        <span class="text-gray-300 font-bold">[画像: Cloud Console 初回同意画面]</span>
+                        <span class="text-sm text-gray-500 mt-2">チェックボックスと「同意して続行」ボタンが強調されたスクリーンショット</span>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="relative pl-10 md:pl-16 mb-12">
+                    <div class="absolute left-0 top-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center shadow-lg">2</div>
+                    <h3 class="text-xl font-bold text-gray-200 mb-3">プロジェクトを作成する</h3>
+                    <p class="text-gray-400 mb-4">APIを利用するための「プロジェクト（箱のようなもの）」を作ります。<br>
+                    画面上部にある「プロジェクトの選択」をクリックし、右上の「新しいプロジェクト」を押します。</p>
+                    <p class="text-gray-400 mb-4">プロジェクト名に好きな名前（例：<span class="text-gray-200 font-mono bg-gray-800 px-1 rounded">WebGameTTS</span>）を入力し、「作成」を押します。</p>
+
+                    <div class="image-placeholder w-full h-48 md:h-64 rounded-xl border border-gray-700 flex flex-col items-center justify-center text-center p-4">
+                        <i data-lucide="image" class="w-12 h-12 text-gray-500 mb-3"></i>
+                        <span class="text-gray-300 font-bold">[画像: プロジェクトの作成画面]</span>
+                        <span class="text-sm text-gray-500 mt-2">画面上部のバーと、プロジェクト名入力欄が強調されたスクリーンショット</span>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="relative pl-10 md:pl-16 mb-12">
+                    <div class="absolute left-0 top-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center shadow-lg">3</div>
+                    <h3 class="text-xl font-bold text-gray-200 mb-3">Text-to-Speech APIを有効にする</h3>
+                    <p class="text-gray-400 mb-4">画面上部の検索バー（🔍 検索欄）に「<strong>Text-to-Speech API</strong>」と入力して検索します。<br>
+                    検索結果から「Cloud Text-to-Speech API」を選び、青い<span class="bg-blue-600 text-white px-3 py-1 rounded shadow">有効にする</span>ボタンを押します。</p>
+
+                    <div class="bg-amber-900/30 border border-amber-600/50 rounded-lg p-4 mt-4 mb-4 flex items-start gap-3">
+                        <i data-lucide="alert-triangle" class="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5"></i>
+                        <div>
+                            <h4 class="font-bold text-amber-400 text-sm">【重要】お支払い情報の登録について</h4>
+                            <p class="text-sm text-amber-200/80 mt-1">
+                                APIを有効にする際、「課金を有効にしてください」と表示される場合があります。<br>
+                                Google Cloudの機能を使うにはクレジットカードの登録が必要です（本人確認のため）。<br>
+                                月間400万文字までは無料で利用できるため、個人でゲームを遊ぶ程度で課金されることはほぼありません。画面の指示に従い、請求先アカウントを設定してください。
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="image-placeholder w-full h-48 md:h-64 rounded-xl border border-gray-700 flex flex-col items-center justify-center text-center p-4">
+                        <i data-lucide="image" class="w-12 h-12 text-gray-500 mb-3"></i>
+                        <span class="text-gray-300 font-bold">[画像: APIライブラリ画面]</span>
+                        <span class="text-sm text-gray-500 mt-2">「Cloud Text-to-Speech API」の「有効にする」ボタンが強調されたスクリーンショット</span>
+                    </div>
+                </div>
+
+                <!-- Step 4 -->
+                <div class="relative pl-10 md:pl-16 mb-12">
+                    <div class="absolute left-0 top-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center shadow-lg">4</div>
+                    <h3 class="text-xl font-bold text-gray-200 mb-3">APIキーを作成する</h3>
+                    <p class="text-gray-400 mb-4">APIが有効になったら、左側のメニュー（≡アイコン）から<br>
+                    <strong>「API とサービス」＞「認証情報」</strong>をクリックします。</p>
+                    <p class="text-gray-400 mb-4">画面上部の<span class="text-blue-400 font-bold">「＋ 認証情報を作成」</span>をクリックし、メニューから<strong>「APIキー」</strong>を選択します。</p>
+                    <p class="text-gray-400 mb-4">作成されたAPIキーが表示されるので、コピーアイコンを押してコピーし、ゲームの設定画面に貼り付けます。</p>
+
+                    <div class="image-placeholder w-full h-48 md:h-64 rounded-xl border border-gray-700 flex flex-col items-center justify-center text-center p-4">
+                        <i data-lucide="image" class="w-12 h-12 text-gray-500 mb-3"></i>
+                        <span class="text-gray-300 font-bold">[画像: 認証情報の作成画面]</span>
+                        <span class="text-sm text-gray-500 mt-2">「認証情報を作成」ドロップダウンと「APIキー」が強調されたスクリーンショット</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- トラブルシューティング -->
+            <section id="trouble" class="mb-10">
+                <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 md:p-8">
+                    <h2 class="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+                        <i data-lucide="help-circle" class="text-gray-400"></i>
+                        よくある質問・トラブル
+                    </h2>
+                    
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-lg font-bold text-indigo-300 mb-2">Q. APIキーを入力したのにエラーが出ます</h3>
+                            <p class="text-gray-400 text-sm leading-relaxed">
+                                A. コピーしたキーの前後に「余計な空白（スペース）」が入っていないか確認してください。<br>
+                                また、Cloud Text-to-Speechの場合、APIを「有効にする」手順を忘れていると機能しません。プロジェクトのライブラリからAPIが有効化されているか再確認してください。
+                            </p>
+                        </div>
+                        <hr class="border-gray-700">
+                        <div>
+                            <h3 class="text-lg font-bold text-indigo-300 mb-2">Q. 勝手にお金がかかるのが不安です</h3>
+                            <p class="text-gray-400 text-sm leading-relaxed">
+                                A. Gemini API、Text-to-Speech APIともに広大な「無料枠」が設定されています。<br>
+                                個人のゲームプレイ程度で無料枠を超えることはありませんが、不安な場合はGoogle Cloudの「お支払い」メニューから「予算とアラート」を設定しておくことができます。また、遊ばなくなったらAPIキーを削除すれば安心です。
+                            </p>
+                        </div>
+                        <hr class="border-gray-700">
+                        <div>
+                            <h3 class="text-lg font-bold text-indigo-300 mb-2">Q. APIキーを他の人に教えてもいいですか？</h3>
+                            <p class="text-red-400 text-sm leading-relaxed font-bold">
+                                A. 絶対にダメです！<br>
+                                <span class="text-gray-400 font-normal">APIキーはあなた専用のパスワードと同じです。他人に教えたり、SNSにスクリーンショットを貼ったりすると、第三者に勝手に使われてしまう（課金される）恐れがあります。厳重に管理してください。</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <footer class="text-center text-gray-600 text-sm mt-10">
+                <p>&copy; 2026 Game Help Center. All rights reserved.</p>
+            </footer>
+
+        </div>
+    </main>
+
+    <script>
+        // Lucideアイコンの初期化
+        lucide.createIcons();
+
+        // モバイル用サイドバーの開閉制御
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const sidebar = document.getElementById('sidebar');
+        let isSidebarOpen = false;
+
+        mobileMenuBtn.addEventListener('click', () => {
+            isSidebarOpen = !isSidebarOpen;
+            if (isSidebarOpen) {
+                sidebar.classList.remove('-translate-x-full');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+            }
+        });
+
+        // サイドバーのリンクをクリックしたらモバイルでは閉じる
+        const navLinks = document.querySelectorAll('.nav-link');
+        navLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth < 768) { // md以下の場合
+                    isSidebarOpen = false;
+                    sidebar.classList.add('-translate-x-full');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>対話型APIキー取得ガイド</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
+        .image-placeholder {
+            background: repeating-linear-gradient(45deg, #1f2937, #1f2937 10px, #111827 10px, #111827 20px);
+        }
+        /* メッセージ出現アニメーション */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .msg-enter {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 font-sans h-screen flex flex-col items-center justify-center p-2 md:p-6 selection:bg-indigo-500">
+
+    <div class="w-full max-w-2xl bg-gray-800 rounded-2xl shadow-2xl border border-gray-700 flex flex-col h-full md:h-[85vh] overflow-hidden">
+        
+        <!-- ヘッダー -->
+        <header class="bg-gray-800 border-b border-gray-700 p-4 flex items-center justify-between z-10 shadow-sm">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                    <i data-lucide="bot" class="w-6 h-6 text-indigo-400"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-white text-lg">API取得サポートボット</h1>
+                    <p class="text-xs text-green-400 flex items-center gap-1">
+                        <span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span>
+                        オンライン
+                    </p>
+                </div>
+            </div>
+            <button onclick="resetChat()" class="text-sm text-gray-400 hover:text-white transition flex items-center gap-1 bg-gray-700 px-3 py-1.5 rounded-lg">
+                <i data-lucide="rotate-ccw" class="w-4 h-4"></i> 最初から
+            </button>
+        </header>
+
+        <!-- チャットエリア -->
+        <main id="chat-container" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scroll-smooth bg-gray-900">
+            <!-- 最初のメッセージはJSで生成 -->
+        </main>
+
+        <!-- コントロール（選択肢）エリア -->
+        <footer class="bg-gray-800 border-t border-gray-700 p-4 min-h-[80px] flex items-center justify-center">
+            <div id="choices-container" class="flex flex-wrap gap-2 justify-center w-full">
+                <!-- 選択肢ボタンはJSで生成 -->
+            </div>
+        </footer>
+
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        const chatContainer = document.getElementById('chat-container');
+        const choicesContainer = document.getElementById('choices-container');
+
+        // シナリオデータ
+        const scenarios = {
+            start: {
+                messages: [
+                    "こんにちは！Webゲームで使う「APIキー」の取得をお手伝いします。",
+                    "どちらのAPIキーを取得しますか？"
+                ],
+                choices: [
+                    { text: "Gemini APIキー（会話用）", action: () => startScenario('gemini') },
+                    { text: "Cloud TTS APIキー（音声用）", action: () => startScenario('tts') }
+                ]
+            },
+            gemini: [
+                {
+                    bot: "【Gemini APIキー】の取得ですね。一緒にやっていきましょう！\n\nまずはGoogle Cloud Consoleにログインしてください。\n<a href='https://console.cloud.google.com/' target='_blank' class='text-indigo-400 underline font-bold'>Google Cloud Consoleを開く</a>",
+                    choices: [{ text: "ログインできました！", next: 1 }]
+                },
+                {
+                    bot: "素晴らしいです！\n次に、画面上部の「プロジェクトの選択」から「新しいプロジェクト」を作成してください。\n（既にプロジェクトがある場合はそれを選んでOKです）",
+                    image: { title: "プロジェクトの作成画面", desc: "画面上部のバーとプロジェクト名入力欄" },
+                    choices: [{ text: "作成しました！", next: 2 }]
+                },
+                {
+                    bot: "よし！次はAPIを使えるようにします。\n上部の検索バー（🔍）で「**Gemini API**」と検索し、青い「有効にする」ボタンを押してください。",
+                    image: { title: "APIライブラリ画面", desc: "「Gemini API」の「有効にする」ボタン" },
+                    choices: [{ text: "有効にしました！", next: 3 }]
+                },
+                {
+                    bot: "いよいよ最後です！\n左メニュー（≡）から「API とサービス」＞「認証情報」を開きます。\n上部の「＋ 認証情報を作成」から「APIキー」を選んでください。",
+                    image: { title: "認証情報の作成画面", desc: "「認証情報を作成」ドロップダウンとAPIキー" },
+                    choices: [{ text: "キーが表示されました！", next: 4 }]
+                },
+                {
+                    bot: "お疲れ様でした！🎉\n表示された長い英数字の文字列が「Gemini APIキー」です。\nコピーしてゲームの設定画面に貼り付けてくださいね。",
+                    choices: [
+                        { text: "別のAPIキーも取得する", action: () => startScenario('start') },
+                        { text: "終わる", action: () => addBotMessage("ゲームをお楽しみください！🎮") }
+                    ]
+                }
+            ],
+            tts: [
+                {
+                    bot: "【Cloud Text-to-Speech APIキー】の取得ですね。少し手順が多いですが、順番にやれば大丈夫です！\n\nまずはGoogle Cloud Consoleにログインしてください。\n<a href='https://console.cloud.google.com/' target='_blank' class='text-indigo-400 underline font-bold'>Google Cloud Consoleを開く</a>",
+                    choices: [{ text: "ログインできました！", next: 1 }]
+                },
+                {
+                    bot: "次に、画面上部の「プロジェクトの選択」から「新しいプロジェクト」を作成してください。",
+                    image: { title: "プロジェクトの作成画面", desc: "画面上部のバーとプロジェクト名入力欄" },
+                    choices: [{ text: "作成しました！", next: 2 }]
+                },
+                {
+                    bot: "検索バー（🔍）で「**Text-to-Speech API**」と検索し、「有効にする」を押します。\n\n⚠️**注意**：ここでクレジットカード等のお支払い情報の登録（請求先アカウント）が求められる場合があります。無料枠が非常に大きいので、個人利用で課金されることはほぼありません。画面の指示に従って登録してください。",
+                    image: { title: "APIライブラリ画面", desc: "「Cloud Text-to-Speech API」の有効化ボタン" },
+                    choices: [{ text: "有効にしました！", next: 3 }]
+                },
+                {
+                    bot: "最後です！\n左メニューから「API とサービス」＞「認証情報」を開きます。\n「＋ 認証情報を作成」から「APIキー」を選んでください。",
+                    image: { title: "認証情報の作成画面", desc: "「認証情報を作成」とAPIキー" },
+                    choices: [{ text: "キーが表示されました！", next: 4 }]
+                },
+                {
+                    bot: "お疲れ様でした！🎉\n表示された文字列が「TTS APIキー」です。\nコピーしてゲームの設定画面に貼り付けてください。",
+                    choices: [
+                        { text: "別のAPIキーも取得する", action: () => startScenario('start') },
+                        { text: "終わる", action: () => addBotMessage("フルボイスでのゲームをお楽しみください！🎮") }
+                    ]
+                }
+            ]
+        };
+
+        let currentScenario = '';
+        let currentStep = 0;
+
+        // 初期化
+        function initChat() {
+            chatContainer.innerHTML = '';
+            choicesContainer.innerHTML = '';
+            startScenario('start');
+        }
+
+        // シナリオの開始
+        function startScenario(scenarioName) {
+            currentScenario = scenarioName;
+            currentStep = 0;
+            
+            if (scenarioName === 'start') {
+                chatContainer.innerHTML = '';
+                scenarios.start.messages.forEach((msg, index) => {
+                    setTimeout(() => addBotMessage(msg), index * 500);
+                });
+                setTimeout(() => showChoices(scenarios.start.choices), scenarios.start.messages.length * 500);
+            } else {
+                renderStep();
+            }
+        }
+
+        // ステップの描画
+        function renderStep() {
+            const stepData = scenarios[currentScenario][currentStep];
+            choicesContainer.innerHTML = ''; // 選択肢を一旦消す
+
+            addBotMessage(stepData.bot, stepData.image);
+            
+            // 少し遅れて選択肢を表示
+            setTimeout(() => {
+                showChoices(stepData.choices.map(choice => ({
+                    text: choice.text,
+                    action: choice.action || (() => {
+                        addUserMessage(choice.text);
+                        currentStep = choice.next;
+                        setTimeout(renderStep, 500);
+                    })
+                })));
+            }, 800);
+        }
+
+        // ボットのメッセージを追加
+        function addBotMessage(text, imageObj = null) {
+            const div = document.createElement('div');
+            div.className = 'flex items-start gap-3 w-full msg-enter';
+            
+            // 改行を<br>に変換、太字を<b>に変換
+            const formattedText = text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b class="text-white">$1</b>');
+
+            let imageHtml = '';
+            if (imageObj) {
+                imageHtml = `
+                    <div class="mt-3 image-placeholder w-full max-w-sm h-32 md:h-40 rounded-xl border border-gray-600 flex flex-col items-center justify-center text-center p-3 shadow-inner">
+                        <i data-lucide="image" class="w-8 h-8 text-gray-500 mb-2"></i>
+                        <span class="text-gray-300 font-bold text-sm">[画像: ${imageObj.title}]</span>
+                        <span class="text-xs text-gray-500 mt-1">${imageObj.desc}</span>
+                    </div>
+                `;
+            }
+
+            div.innerHTML = `
+                <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center flex-shrink-0 shadow-lg">
+                    <i data-lucide="bot" class="w-5 h-5 text-white"></i>
+                </div>
+                <div class="bg-gray-800 border border-gray-700 p-4 rounded-2xl rounded-tl-none shadow-md max-w-[85%] text-gray-200 text-sm md:text-base leading-relaxed">
+                    ${formattedText}
+                    ${imageHtml}
+                </div>
+            `;
+            chatContainer.appendChild(div);
+            lucide.createIcons();
+            scrollToBottom();
+        }
+
+        // ユーザーのメッセージ（吹き出し）を追加
+        function addUserMessage(text) {
+            const div = document.createElement('div');
+            div.className = 'flex items-start gap-3 w-full justify-end msg-enter';
+            div.innerHTML = `
+                <div class="bg-indigo-600 p-4 rounded-2xl rounded-tr-none shadow-md max-w-[85%] text-white text-sm md:text-base font-medium">
+                    ${text}
+                </div>
+            `;
+            chatContainer.appendChild(div);
+            scrollToBottom();
+        }
+
+        // 選択肢ボタンの表示
+        function showChoices(choices) {
+            choicesContainer.innerHTML = '';
+            choices.forEach(choice => {
+                const button = document.createElement('button');
+                button.className = 'bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-5 rounded-full shadow-lg transition transform hover:scale-105 active:scale-95 text-sm md:text-base';
+                button.textContent = choice.text;
+                button.onclick = () => {
+                    choicesContainer.innerHTML = ''; // クリックしたら消す
+                    choice.action();
+                };
+                choicesContainer.appendChild(button);
+            });
+        }
+
+        // スクロールを一番下へ
+        function scrollToBottom() {
+            setTimeout(() => {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }, 50);
+        }
+
+        // リセット機能
+        function resetChat() {
+            initChat();
+        }
+
+        // 起動
+        window.onload = initChat;
+
+    </script>
+</body>
+</html>

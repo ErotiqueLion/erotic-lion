@@ -1,0 +1,88 @@
+自分のGoogle APIキーを入力してください。ブラウザ内にのみ保存され、外部送信はされません。取得方法は「遊び方」画面を参照。
+
+下記のように設定画面の表示がおかしいまま、テストもエラーになる
+Gemini API キー （必須 / console.cloud.google.com）
+•••••••••••••••••••••••••••••••••••••••
+テスト
+GCP TTS キー （任意 / console.cloud.google.com）
+•••••••••••••••••••••••••••••••••••••••
+テスト
+
+下記の２つのKEY、設定画面の表示もおかしい
+１．Cloud Generative Language API
+２．Cloud Text-to-Speech API
+
+
+#1 欲情度の「♡～%」を10%大きくし、下にプログレスバーも表示
+#2 「開始する」を「遊びましょ！」に変更
+#3 プレイヤー勝利時の「VICTORY!!」>「逝っちゃた、貴方の勝ちよ！」
+#4 音声からテキスト入力に変更する歯車アイコンを分かり易いアイコンに変更
+#5 遊びましょ！>いらっしゃい♡、対話を開始＞遊びましょ♡
+
+#6 現在のvercel環境を下記のGitに移行できる？
+https://erotiquelion.github.io/erotic-lion/
+https://github.com/ErotiqueLion/erotic-lion
+
+#5 key.txtはGit対象外
+#6 別バージョンとして、kuroshiro の導入
+
+6286287
+docs: update restart guide for 2026-04-08 improvements
+
+下記もそちらで 
+github.com/ErotiqueLion/erotic-lion → Settings → Pages                                                                                           
+  → Source: Deploy from a branch → Branch: gh-pages / / (root) → Save 
+
+認証コードが届かない
+
+ 
+GitHub
+[ErotiqueLion/erotic-lion] Deploy to GitHub Pages workflow run
+ 
+
+ 
+Deploy to GitHub Pages: All jobs have failed
+ 
+View workflow run
+ 
+Status	Job	Annotations
+deploy	
+Deploy to GitHub Pages / deploy
+Failed in 9 seconds
+
+
+APIkeyが通らなくなった
+index-CcdjOXPQ.js:59  POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=AIzaSyCj3gJ9jk5uiDVLMALdnkkk2_G5oUB_3r4 403 (Forbidden)
+onClick @ index-CcdjOXPQ.js:59
+yd @ index-CcdjOXPQ.js:8
+(anonymous) @ index-CcdjOXPQ.js:8
+mn @ index-CcdjOXPQ.js:8
+wd @ index-CcdjOXPQ.js:8
+dp @ index-CcdjOXPQ.js:9
+lp @ index-CcdjOXPQ.js:9
+index-CcdjOXPQ.js:54  POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=AIzaSyCj3gJ9jk5uiDVLMALdnkkk2_G5oUB_3r4 403 (Forbidden)
+Ye @ index-CcdjOXPQ.js:54
+Xe @ index-CcdjOXPQ.js:54
+onClick @ index-CcdjOXPQ.js:59
+yd @ index-CcdjOXPQ.js:8
+(anonymous) @ index-CcdjOXPQ.js:8
+mn @ index-CcdjOXPQ.js:8
+wd @ index-CcdjOXPQ.js:8
+dp @ index-CcdjOXPQ.js:9
+lp @ index-CcdjOXPQ.js:9
+index-CcdjOXPQ.js:54 Gemini TTS failed: Requests to this API generativelanguage.googleapis.com method google.ai.generativelanguage.v1beta.GenerativeService.GenerateContent are blocked.
+Ye @ index-CcdjOXPQ.js:54
+await in Ye
+Xe @ index-CcdjOXPQ.js:54
+onClick @ index-CcdjOXPQ.js:59
+yd @ index-CcdjOXPQ.js:8
+(anonymous) @ index-CcdjOXPQ.js:8
+mn @ index-CcdjOXPQ.js:8
+wd @ index-CcdjOXPQ.js:8
+dp @ index-CcdjOXPQ.js:9
+lp @ index-CcdjOXPQ.js:9
+
+
+
+
+
