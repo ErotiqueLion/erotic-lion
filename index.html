@@ -305,8 +305,12 @@
             position: relative;
             width: 100%;
             flex-shrink: 0;
-            /* 2760:1504 = 原画像のアスペクト比 */
+            /* PC: 横長 2760x1504 */
             aspect-ratio: 2760 / 1504;
+        }
+        /* モバイル: 縦長 1536x2752 */
+        @media (max-width: 767px) {
+            #select-wrap { aspect-ratio: 1536 / 2752; }
         }
 
         /* 背景画像（コンテナを満たす） */
@@ -338,11 +342,21 @@
             border-radius: 0.8%;
         }
 
-        /* カード位置（原画像 2760x1504 の赤枠実測値から算出） */
+        /* カード位置（PC: 原画像 2760x1504 の赤枠実測値） */
         #gcard-1 { top: 35.3%; left: 31.3%; width: 19.9%; height: 23.6%; }
         #gcard-2 { top: 35.1%; left: 55.2%; width: 19.5%; height: 23.6%; }
         #gcard-3 { top: 65.0%; left: 30.8%; width: 20.2%; height: 28.4%; }
         #gcard-4 { top: 64.8%; left: 55.0%; width: 21.6%; height: 28.9%; }
+
+        /* カード位置 + フォント（モバイル: 縦1列 赤枠実測値） */
+        @media (max-width: 767px) {
+            #gcard-1 { top: 19.22%; left: 30.99%; width: 39.84%; height: 10.14%; }
+            #gcard-2 { top: 31.90%; left: 31.12%; width: 39.71%; height: 10.14%; }
+            #gcard-3 { top: 44.66%; left: 31.18%; width: 39.78%; height:  9.77%; }
+            #gcard-4 { top: 57.10%; left: 31.18%; width: 39.78%; height:  9.77%; }
+            .gcard-title { font-size: clamp(11px, 4.0vw, 22px); margin-bottom: 4%; }
+            .gcard-desc  { font-size: clamp(9px,  3.0vw, 16px); }
+        }
 
         /* カード内側（画像のプレースホルダーを完全に隠す） */
         .gcard-inner {
@@ -484,8 +498,11 @@
 <div id="screen-select" class="screen">
     <div id="select-wrap">
 
-        <!-- 背景画像（アスペクト比を保ちながら幅 100% に拡縮） -->
-        <img id="select-img" src="/erotic-lion/img/3.select.webp" alt="Select Your Curious Encounter">
+        <!-- 背景画像（PC: 横長 / モバイル: 縦長を自動切り替え） -->
+        <picture>
+            <source media="(max-width: 767px)" srcset="/erotic-lion/img/menu_mob.webp">
+            <img id="select-img" src="/erotic-lion/img/3.select.webp" alt="Select Your Curious Encounter">
+        </picture>
 
         <!-- 全体暗化レイヤー（フレーム外の余計な文字を抑える） -->
         <div id="select-dim"></div>
