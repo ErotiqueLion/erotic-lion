@@ -269,59 +269,30 @@
             background: rgba(22, 8, 2, 0.82);
         }
 
-        /* 3サークル（画像のデザインに合わせた淡いアウトライン） */
-        .gcard-circles {
-            display: flex;
-            gap: 8%;
-            margin-bottom: 7%;
-            width: 58%;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .gcircle {
-            width: 26%;
-            aspect-ratio: 1 / 1;
-            border: 1px solid rgba(241, 222, 178, 0.50);
-            border-radius: 50%;
-            background: rgba(241, 222, 178, 0.06);
-            flex-shrink: 0;
-            /* 内側グロー */
-            box-shadow: inset 0 0 4px rgba(241, 222, 178, 0.12);
-        }
-
-        /* ホバー時にサークルを少し明るく */
-        .gcard:hover .gcircle {
-            border-color: rgba(241, 222, 178, 0.75);
-            box-shadow: inset 0 0 6px rgba(241, 222, 178, 0.22),
-                        0 0 8px rgba(201, 168, 76, 0.20);
-        }
-
-        /* ゲームタイトル */
+        /* ゲームタイトル（カード上部・メイン要素） */
         .gcard-title {
-            font-family: 'Cinzel', serif;
-            /* vw ベースで画像スケールに追従、最小・最大でクランプ */
-            font-size: clamp(8px, 1.7vw, 20px);
+            font-family: 'Noto Serif JP', Georgia, serif;
+            font-size: clamp(10px, 2.0vw, 24px);
             font-weight: 700;
-            color: #f1deb2;
-            letter-spacing: 0.08em;
+            color: #c9a84c;
+            letter-spacing: 0.06em;
             text-align: center;
-            margin-bottom: 5%;
+            margin-bottom: 10%;
             line-height: 1.3;
             flex-shrink: 0;
         }
 
         .gcard:hover .gcard-title {
-            color: #fff8e8;
+            color: #f0d070;
         }
 
         /* 説明文 */
         .gcard-desc {
             font-family: 'Noto Serif JP', Georgia, serif;
-            font-size: clamp(7px, 1.25vw, 14px);
-            color: #b89a6a;
+            font-size: clamp(7px, 1.2vw, 14px);
+            color: #c8aa80;
             text-align: center;
-            line-height: 1.65;
+            line-height: 1.7;
             margin: 0;
         }
 
@@ -425,46 +396,31 @@
         <!-- カードオーバーレイ -->
         <div id="select-cards">
 
-            <!-- カード1: 陰毛だーゲーム -->
-            <a href="./games/Inmouder.html" class="gcard" id="gcard-1">
+            <!-- カード1 (左上): 尻叩き -->
+            <a href="./games/hip.html" class="gcard" id="gcard-1">
                 <div class="gcard-inner">
-                    <div class="gcard-circles">
-                        <span class="gcircle"></span>
-                        <span class="gcircle"></span>
-                        <span class="gcircle"></span>
-                    </div>
-                    <h3 class="gcard-title">陰毛だーゲーム</h3>
-                    <p class="gcard-desc">深淵から忍び寄る快楽。<br>禁忌の快感を暴き出せ。</p>
+                    <h3 class="gcard-title">尻叩き</h3>
+                    <p class="gcard-desc">傲慢な女の尻を叩いて調教しよう</p>
                 </div>
             </a>
 
-            <!-- カード2: HIP -->
-            <a href="./games/hip.html" class="gcard" id="gcard-2">
+            <!-- カード2 (右上): 淫らな尻取り -->
+            <a href="./games/erotic-word-chain.html" class="gcard" id="gcard-2">
                 <div class="gcard-inner">
-                    <div class="gcard-circles">
-                        <span class="gcircle"></span>
-                        <span class="gcircle"></span>
-                        <span class="gcircle"></span>
-                    </div>
-                    <h3 class="gcard-title">HIP</h3>
-                    <p class="gcard-desc">視線を奪う曲線美。<br>揺れる衝動に身を任せろ。</p>
+                    <h3 class="gcard-title">淫らな尻取り</h3>
+                    <p class="gcard-desc">エロス溢れるAIしりとりゲームを体感しよう</p>
                 </div>
             </a>
 
-            <!-- カード3: Erotic Word Chain -->
-            <a href="./games/erotic-word-chain.html" class="gcard" id="gcard-3">
+            <!-- カード3 (左下): 陰毛だぁ～ゲーム -->
+            <a href="./games/Inmouder.html" class="gcard" id="gcard-3">
                 <div class="gcard-inner">
-                    <div class="gcard-circles">
-                        <span class="gcircle"></span>
-                        <span class="gcircle"></span>
-                        <span class="gcircle"></span>
-                    </div>
-                    <h3 class="gcard-title">Erotic Word Chain</h3>
-                    <p class="gcard-desc">野生の舌と淫らな言葉。<br>AIとのしりとりで堕ちよ。</p>
+                    <h3 class="gcard-title">陰毛だぁ～ゲーム</h3>
+                    <p class="gcard-desc">陰毛に塗れながらも発射しよう</p>
                 </div>
             </a>
 
-            <!-- カード4: Coming Soon (Psycho Loop) -->
+            <!-- カード4 (右下): Coming Soon -->
             <div class="gcard gcard-soon" id="gcard-4">
                 <div class="gcard-inner">
                     <div class="gcard-coming-header">
