@@ -49,7 +49,7 @@
             opacity: 1;
             pointer-events: auto;
         }
-        /* 暗化オーバーレイ */
+        /* 暗化オーバーレイ（TOP・PW のみ） */
         .screen::before {
             content: "";
             position: absolute;
@@ -59,27 +59,30 @@
         }
         .screen > * { position: relative; z-index: 1; }
 
-        /* ── TOP 画面 (#screen-top) ── */
+        /* ── TOP 画面 ── */
         #screen-top {
             background-image: url('/erotic-lion/img/1.Opening.webp');
             justify-content: flex-end;
         }
 
-        /* ── パスワード画面 (#screen-pw) ── */
+        /* ── パスワード画面 ── */
         #screen-pw {
             background-image: url('/erotic-lion/img/2.key.webp');
             justify-content: center;
         }
 
-        /* ── ゲーム選択画面 (#screen-select) ── */
+        /* ── ゲーム選択画面 ──
+           img タグで背景を管理するため background-image は使わない */
         #screen-select {
-            background-image: url('/erotic-lion/img/3.select.webp');
+            background-image: none;
             justify-content: flex-start;
+            align-items: flex-start;
             overflow-y: auto;
-            -webkit-overflow-scrolling: touch; /* iOS Safari 慣性スクロール */
-            padding: 5vh 0 5vh;
-            align-items: center;
+            -webkit-overflow-scrolling: touch;
+            padding: 0;
         }
+        /* 選択画面は img で暗化を管理するので ::before 不要 */
+        #screen-select::before { display: none; }
 
         /* ── ボタン共通 ── */
         .btn-row {
@@ -93,15 +96,15 @@
             font-size: 0.85rem;
             letter-spacing: 4px;
             text-transform: uppercase;
-            padding: 14px 32px; /* タッチターゲット確保 */
-            min-height: 48px;   /* iOS HIG 推奨の最小タッチ高さ */
+            padding: 14px 32px;
+            min-height: 48px;
             border: 1px solid var(--accent);
             background: rgba(13, 0, 8, 0.7);
             color: var(--accent);
             cursor: pointer;
             transition: background 0.3s, color 0.3s;
             user-select: none;
-            -webkit-tap-highlight-color: transparent; /* iOS タップ時の青枠を消す */
+            -webkit-tap-highlight-color: transparent;
         }
         .btn:hover {
             background: var(--accent);
@@ -145,7 +148,6 @@
             gap: 10px;
             margin-bottom: 20px;
         }
-        /* ダイヤル風の入力ドット */
         .pw-dot {
             width: 18px;
             height: 18px;
@@ -154,15 +156,13 @@
             background: transparent;
             transition: background 0.2s;
         }
-        .pw-dot.filled {
-            background: var(--accent);
-        }
+        .pw-dot.filled { background: var(--accent); }
         #pw-input {
             width: 100%;
             background: rgba(0,0,0,0.5);
             border: 1px solid var(--border);
             border-bottom: 1px solid var(--accent);
-            color: transparent; /* 入力文字は非表示（ダイヤルドットで代替表示） */
+            color: transparent;
             caret-color: var(--accent);
             font-family: 'Cinzel', serif;
             font-size: 1.5rem;
@@ -172,9 +172,7 @@
             outline: none;
             margin-bottom: 8px;
         }
-        #pw-input:focus {
-            border-bottom-color: #e8c76a;
-        }
+        #pw-input:focus { border-bottom-color: #e8c76a; }
         #pw-error {
             font-family: 'Cinzel', serif;
             font-size: 0.65rem;
@@ -183,7 +181,6 @@
             min-height: 1.2em;
             margin-bottom: 20px;
         }
-        /* シェイクアニメーション */
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
             20% { transform: translateX(-8px); }
@@ -193,183 +190,169 @@
         }
         .shake { animation: shake 0.45s ease; }
 
-        /* ── ゲーム選択画面内UI ── */
-        #select-ui {
-            width: 90%;
-            max-width: 840px;
-        }
-        #select-ui .select-title {
-            text-align: center;
-            margin-bottom: 24px;
-        }
-        #select-ui .select-title h2 {
-            font-family: 'Cinzel', serif;
-            font-size: clamp(1rem, 3vw, 1.6rem);
-            font-weight: 900;
-            color: var(--text);
-            letter-spacing: 3px;
-            text-shadow: 0 0 30px rgba(201,168,76,0.3);
-        }
-        #select-ui .select-title p {
-            font-family: 'Cinzel', serif;
-            font-size: 0.65rem;
-            letter-spacing: 6px;
-            color: var(--subtext);
-            text-transform: uppercase;
-            margin-top: 6px;
-        }
-        /* 金色区切り線 */
-        .divider {
-            width: 160px;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, var(--accent), transparent);
-            margin: 14px auto 28px;
-        }
+        /* ════════════════════════════════════════
+           ゲーム選択画面 — img + オーバーレイ方式
+           ════════════════════════════════════════ */
 
-        /* カードグリッド */
-        .card-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-        }
-        @media (max-width: 520px) {
-            .card-grid { grid-template-columns: 1fr; }
-        }
-
-        /* カード */
-        .card {
-            display: block;
-            text-decoration: none;
-            color: inherit;
-            background: rgba(13, 0, 8, 0.78);
-            border: 1px solid var(--border);
+        /* 画像とカードを包むコンテナ */
+        #select-wrap {
             position: relative;
-            transition: transform 0.35s ease, box-shadow 0.35s ease, border-color 0.3s;
-            overflow: hidden;
-        }
-        /* 四隅の金装飾 */
-        .card::before, .card::after {
-            content: "";
-            position: absolute;
-            width: 12px;
-            height: 12px;
-            border-color: var(--accent);
-            border-style: solid;
-            opacity: 0.4;
-            transition: opacity 0.3s;
-            z-index: 2;
-            pointer-events: none;
-        }
-        .card::before { top: 6px; left: 6px; border-width: 1px 0 0 1px; }
-        .card::after  { bottom: 6px; right: 6px; border-width: 0 1px 1px 0; }
-        .card:hover {
-            transform: translateY(-5px);
-            border-color: rgba(201,168,76,0.5);
-            box-shadow: 0 12px 36px rgba(139,0,0,0.5), 0 0 20px rgba(201,168,76,0.06);
-        }
-        .card:hover::before, .card:hover::after { opacity: 1; }
-
-        /* サムネイル（幕風） */
-        .thumb {
             width: 100%;
-            aspect-ratio: 16/8;
-            background: linear-gradient(160deg, #280010 0%, #6b0000 55%, #180008 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            overflow: hidden;
+            flex-shrink: 0;
         }
-        /* 幕の縦ストライプ */
-        .thumb::before {
-            content: "";
+
+        /* 背景画像（アスペクト比を維持するため img タグ） */
+        #select-img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        /* カードオーバーレイ全体 */
+        #select-cards {
             position: absolute;
             inset: 0;
-            background: repeating-linear-gradient(
-                90deg,
-                rgba(0,0,0,0) 0px, rgba(0,0,0,0) 26px,
-                rgba(0,0,0,0.18) 26px, rgba(0,0,0,0.18) 30px
-            );
         }
-        /* ホバーで幕上端に光 */
-        .thumb::after {
-            content: "";
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, var(--accent), transparent);
-            opacity: 0;
-            transition: opacity 0.4s;
-        }
-        .card:hover .thumb::after { opacity: 0.8; }
-        .thumb-icon {
-            font-size: 2.8rem;
-            position: relative;
-            z-index: 1;
-            filter: drop-shadow(0 4px 12px rgba(0,0,0,0.9));
-            transition: transform 0.35s;
-        }
-        .card:hover .thumb-icon { transform: scale(1.08); }
 
-        /* カード本文 */
-        .info {
-            padding: 16px 18px 18px;
-            border-top: 1px solid var(--border);
+        /* 個別カード共通 */
+        .gcard {
+            position: absolute;
+            display: flex;
+            align-items: stretch;
+            text-decoration: none;
+            color: inherit;
+            overflow: hidden;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            /* フレームの角丸に合わせる（画像の丸み ≈ 1.5% of card width） */
+            border-radius: 0.8%;
         }
-        .info h3 {
+
+        /* カード位置（% は #select-wrap = 画像サイズに対する比） */
+        #gcard-1 { top: 24.5%; left: 20.5%; width: 28%;   height: 32.5%; }
+        #gcard-2 { top: 24.5%; left: 51.5%; width: 27.5%; height: 32.5%; }
+        #gcard-3 { top: 59%;   left: 20.5%; width: 28%;   height: 33.5%; }
+        #gcard-4 { top: 59%;   left: 51.5%; width: 27.5%; height: 33.5%; }
+
+        /* カード内側（暗化して画像のプレースホルダーテキストを隠す） */
+        .gcard-inner {
+            width: 100%;
+            height: 100%;
+            background: rgba(14, 6, 2, 0.86);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 7% 9%;
+            transition: background 0.3s;
+        }
+
+        .gcard:hover .gcard-inner {
+            background: rgba(28, 12, 4, 0.70);
+        }
+
+        /* 3サークル（画像のデザインに合わせた淡いアウトライン） */
+        .gcard-circles {
+            display: flex;
+            gap: 8%;
+            margin-bottom: 7%;
+            width: 58%;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .gcircle {
+            width: 26%;
+            aspect-ratio: 1 / 1;
+            border: 1px solid rgba(241, 222, 178, 0.50);
+            border-radius: 50%;
+            background: rgba(241, 222, 178, 0.06);
+            flex-shrink: 0;
+            /* 内側グロー */
+            box-shadow: inset 0 0 4px rgba(241, 222, 178, 0.12);
+        }
+
+        /* ホバー時にサークルを少し明るく */
+        .gcard:hover .gcircle {
+            border-color: rgba(241, 222, 178, 0.75);
+            box-shadow: inset 0 0 6px rgba(241, 222, 178, 0.22),
+                        0 0 8px rgba(201, 168, 76, 0.20);
+        }
+
+        /* ゲームタイトル */
+        .gcard-title {
             font-family: 'Cinzel', serif;
-            font-size: 0.8rem;
+            /* vw ベースで画像スケールに追従、最小・最大でクランプ */
+            font-size: clamp(8px, 1.7vw, 20px);
             font-weight: 700;
-            color: var(--accent);
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            margin-bottom: 6px;
+            color: #f1deb2;
+            letter-spacing: 0.08em;
+            text-align: center;
+            margin-bottom: 5%;
+            line-height: 1.3;
+            flex-shrink: 0;
         }
-        .info p {
-            font-size: 0.72rem;
-            color: var(--subtext);
-            line-height: 1.7;
-            margin-bottom: 12px;
+
+        .gcard:hover .gcard-title {
+            color: #fff8e8;
         }
-        .info .enter-btn {
-            display: inline-block;
-            padding: 5px 16px;
-            border: 1px solid rgba(201,168,76,0.45);
-            color: var(--accent);
-            font-family: 'Cinzel', serif;
-            font-size: 0.62rem;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            transition: background 0.3s, color 0.3s, border-color 0.3s;
-        }
-        .card:hover .enter-btn {
-            background: var(--accent);
-            color: var(--bg);
-            border-color: var(--accent);
+
+        /* 説明文 */
+        .gcard-desc {
+            font-family: 'Noto Serif JP', Georgia, serif;
+            font-size: clamp(7px, 1.25vw, 14px);
+            color: #b89a6a;
+            text-align: center;
+            line-height: 1.65;
+            margin: 0;
         }
 
         /* Coming Soon カード */
-        .card.soon {
-            opacity: 0.35;
+        .gcard-soon {
+            cursor: default;
             pointer-events: none;
         }
 
-        /* 戻るリンク */
-        #back-link {
-            text-align: center;
-            margin-top: 20px;
-        }
-        #back-link a {
+        .gcard-coming-header {
+            display: flex;
+            align-items: center;
+            gap: 5%;
+            margin-bottom: 7%;
             font-family: 'Cinzel', serif;
-            font-size: 0.62rem;
-            letter-spacing: 4px;
-            color: var(--subtext);
-            text-decoration: none;
+            font-size: clamp(7px, 1.5vw, 17px);
+            color: #7a6040;
+            letter-spacing: 0.08em;
+            flex-shrink: 0;
+        }
+
+        .gcard-lock {
+            font-size: 0.88em;
+            opacity: 0.65;
+        }
+
+        .gcard-desc-muted {
+            color: #4a3820;
+        }
+
+        /* 戻るリンク */
+        #select-back {
+            position: absolute;
+            /* 画像下端のわずか上に配置 */
+            bottom: 1.5%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'Cinzel', serif;
+            font-size: clamp(7px, 1.0vw, 12px);
+            letter-spacing: 3px;
+            color: rgba(158, 143, 122, 0.60);
             text-transform: uppercase;
             cursor: pointer;
+            white-space: nowrap;
             transition: color 0.3s;
+            -webkit-tap-highlight-color: transparent;
         }
-        #back-link a:hover { color: var(--accent); }
+
+        #select-back:hover { color: #c9a84c; }
     </style>
 </head>
 <body>
@@ -388,7 +371,6 @@
 <div id="screen-pw" class="screen">
     <div id="pw-ui">
         <p class="pw-title">秘密の鍵 (Password) Required</p>
-        <!-- ダイヤル風ドット表示 -->
         <div class="pw-dial">
             <span class="pw-dot" id="dot0"></span>
             <span class="pw-dot" id="dot1"></span>
@@ -414,67 +396,70 @@
 
 <!-- ========== ゲーム選択画面 ========== -->
 <div id="screen-select" class="screen">
-    <div id="select-ui">
-        <div class="select-title">
-            <h2>Select Your Curious Encounter</h2>
-            <p>Choose with care</p>
-            <div class="divider"></div>
-        </div>
+    <div id="select-wrap">
 
-        <div class="card-grid">
-            <!-- 陰毛だーゲーム -->
-            <a href="./games/Inmouder.html" class="card">
-                <div class="thumb">
-                    <span class="thumb-icon">🖤</span>
-                </div>
-                <div class="info">
-                    <h3>陰毛だーゲーム</h3>
-                    <p>深淵から忍び寄る快楽。闇の中に隠された禁忌の快感を暴き出せ。</p>
-                    <span class="enter-btn">Enter</span>
+        <!-- 背景画像（アスペクト比を保ちながら幅 100% に拡縮） -->
+        <img id="select-img" src="/erotic-lion/img/3.select.webp" alt="Select Your Curious Encounter">
+
+        <!-- カードオーバーレイ -->
+        <div id="select-cards">
+
+            <!-- カード1: 陰毛だーゲーム -->
+            <a href="./games/Inmouder.html" class="gcard" id="gcard-1">
+                <div class="gcard-inner">
+                    <div class="gcard-circles">
+                        <span class="gcircle"></span>
+                        <span class="gcircle"></span>
+                        <span class="gcircle"></span>
+                    </div>
+                    <h3 class="gcard-title">陰毛だーゲーム</h3>
+                    <p class="gcard-desc">深淵から忍び寄る快楽。<br>禁忌の快感を暴き出せ。</p>
                 </div>
             </a>
 
-            <!-- HIP -->
-            <a href="./games/hip.html" class="card">
-                <div class="thumb">
-                    <span class="thumb-icon">🍑</span>
-                </div>
-                <div class="info">
-                    <h3>HIP</h3>
-                    <p>視線を奪う曲線美。揺れる衝動に身を任せる、禁断の快楽。</p>
-                    <span class="enter-btn">Enter</span>
-                </div>
-            </a>
-
-            <!-- Erotic Word Chain -->
-            <a href="./games/erotic-word-chain.html" class="card">
-                <div class="thumb" style="background: linear-gradient(160deg, #1a0008 0%, #8b0000 40%, #4a0030 100%);">
-                    <span class="thumb-icon">🦁</span>
-                </div>
-                <div class="info">
-                    <h3>Erotic Word Chain</h3>
-                    <p>野生の舌と淫らな言葉の応酬。AIとのしりとりで欲情度を高めよ。</p>
-                    <span class="enter-btn">Enter</span>
+            <!-- カード2: HIP -->
+            <a href="./games/hip.html" class="gcard" id="gcard-2">
+                <div class="gcard-inner">
+                    <div class="gcard-circles">
+                        <span class="gcircle"></span>
+                        <span class="gcircle"></span>
+                        <span class="gcircle"></span>
+                    </div>
+                    <h3 class="gcard-title">HIP</h3>
+                    <p class="gcard-desc">視線を奪う曲線美。<br>揺れる衝動に身を任せろ。</p>
                 </div>
             </a>
 
-            <!-- Psycho Loop (Coming Soon) -->
-            <div class="card soon">
-                <div class="thumb" style="background: linear-gradient(160deg, #08001a 0%, #2a0055 55%, #080010 100%);">
-                    <span class="thumb-icon">🌀</span>
+            <!-- カード3: Erotic Word Chain -->
+            <a href="./games/erotic-word-chain.html" class="gcard" id="gcard-3">
+                <div class="gcard-inner">
+                    <div class="gcard-circles">
+                        <span class="gcircle"></span>
+                        <span class="gcircle"></span>
+                        <span class="gcircle"></span>
+                    </div>
+                    <h3 class="gcard-title">Erotic Word Chain</h3>
+                    <p class="gcard-desc">野生の舌と淫らな言葉。<br>AIとのしりとりで堕ちよ。</p>
                 </div>
-                <div class="info">
-                    <h3>Psycho Loop</h3>
-                    <p>終わらない夜。繰り返される悦びの渦に沈め。</p>
-                    <span class="enter-btn">Coming Soon</span>
+            </a>
+
+            <!-- カード4: Coming Soon (Psycho Loop) -->
+            <div class="gcard gcard-soon" id="gcard-4">
+                <div class="gcard-inner">
+                    <div class="gcard-coming-header">
+                        <span class="gcard-lock">🔒</span>
+                        <span>Coming Soon</span>
+                        <span class="gcard-lock">🔒</span>
+                    </div>
+                    <p class="gcard-desc gcard-desc-muted">Psycho Loop<br>終わらない夜。繰り返される悦びの渦に沈め。</p>
                 </div>
             </div>
-        </div>
 
-        <div id="back-link">
-            <a onclick="showScreen('top')">← Back to Entrance</a>
-        </div>
-    </div>
+            <!-- 入口に戻るリンク -->
+            <div id="select-back" onclick="showScreen('top')">← Back to Entrance</div>
+
+        </div><!-- /#select-cards -->
+    </div><!-- /#select-wrap -->
 </div>
 
 <script>
@@ -490,7 +475,6 @@
         for (let i = 0; i < 4; i++) {
             document.getElementById('dot' + i).classList.toggle('filled', i < len);
         }
-        // エラーをクリア
         document.getElementById('pw-error').textContent = '';
     }
 
@@ -505,7 +489,6 @@
         } else {
             document.getElementById('pw-error').textContent = 'The key is wrong.';
             input.classList.remove('shake');
-            // リフロー強制でアニメーションをリセット
             void input.offsetWidth;
             input.classList.add('shake');
             input.value = '';
@@ -519,20 +502,18 @@
         updateDots();
         document.getElementById('pw-error').textContent = '';
         showScreen('pw');
-        // フォーカスを少し遅らせてフェード後に合わせる
         setTimeout(() => document.getElementById('pw-input').focus(), 500);
     }
 
     // ── QUIT ──
     function handleQuit() {
-        // モダンブラウザはスクリプトからのタブ閉じを制限するため、メッセージを表示
         if (!window.close()) {
             document.querySelector('#top-ui').innerHTML =
                 '<p style="font-family:Cinzel,serif;font-size:0.75rem;letter-spacing:4px;color:#9e8f7a;text-transform:uppercase;">The show must go on...</p>';
         }
     }
 
-    // ── 2番目・3番目の画像を遅延プリロード ──
+    // ── 2・3 枚目の画像を遅延プリロード ──
     function preloadImages() {
         ['/erotic-lion/img/2.key.webp', '/erotic-lion/img/3.select.webp'].forEach(src => {
             const img = new Image();
@@ -542,13 +523,11 @@
 
     // ── 初期化 ──
     window.addEventListener('DOMContentLoaded', () => {
-        // セッション認証済みなら選択画面へ直行
         if (sessionStorage.getItem('portal_unlocked') === '1') {
             showScreen('select');
         } else {
             showScreen('top');
         }
-        // 2・3枚目の画像を遅延プリロード
         setTimeout(preloadImages, 800);
     });
 </script>
