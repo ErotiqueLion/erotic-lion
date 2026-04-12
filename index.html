@@ -84,6 +84,20 @@
         /* 選択画面は img で暗化を管理するので ::before 不要 */
         #screen-select::before { display: none; }
 
+        /* 画像全体に薄い暗化レイヤー（フレーム外の文字・装飾を抑える） */
+        #select-dim {
+            position: absolute;
+            inset: 0;
+            background: rgba(5, 2, 1, 0.45);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* カードはdimの上に表示 */
+        .gcard, #select-back {
+            z-index: 2;
+        }
+
         /* ── ボタン共通 ── */
         .btn-row {
             display: flex;
@@ -400,6 +414,9 @@
 
         <!-- 背景画像（アスペクト比を保ちながら幅 100% に拡縮） -->
         <img id="select-img" src="/erotic-lion/img/3.select.webp" alt="Select Your Curious Encounter">
+
+        <!-- 全体暗化レイヤー（フレーム外の余計な文字を抑える） -->
+        <div id="select-dim"></div>
 
         <!-- カードオーバーレイ -->
         <div id="select-cards">
