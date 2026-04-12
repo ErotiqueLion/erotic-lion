@@ -145,7 +145,12 @@
         #pw-wrap {
             position: relative;
             width: 100%;
+            /* PC: 横長 2760x1504 */
             aspect-ratio: 2760 / 1504;
+        }
+        /* モバイル: 縦長 1536x2752 */
+        @media (max-width: 767px) {
+            #pw-wrap { aspect-ratio: 1536 / 2752; }
         }
         #pw-img {
             position: absolute;
@@ -159,7 +164,7 @@
             inset: 0;
         }
 
-        /* パスワード入力フィールド（赤枠実測: left=45.43%, top=53.52%, w=13.41%, h=4.39%） */
+        /* パスワード入力フィールド（PC赤枠実測） */
         #pw-input {
             position: absolute;
             left: 45.43%;
@@ -209,7 +214,7 @@
             border-color: rgba(201, 168, 76, 0.55);
         }
 
-        /* CANCEL ボタン（赤枠実測: left=53.19%, top=87.77%, w=11.74%, h=5.39%） */
+        /* CANCEL ボタン（PC赤枠実測） */
         #btn-cancel {
             position: absolute;
             left: 53.19%;
@@ -225,6 +230,33 @@
         #btn-cancel:hover {
             background: rgba(201, 168, 76, 0.08);
             border-color: rgba(158, 143, 122, 0.4);
+        }
+
+        /* ── モバイル PW 画面: 各要素の位置を上書き（赤枠実測値） ── */
+        @media (max-width: 767px) {
+            #pw-input {
+                left: 41.34%;
+                top: 52.80%;
+                width: 25.98%;
+                height: 2.40%;
+            }
+            #pw-error {
+                left: 30%;
+                top: 56%;
+                width: 40%;
+            }
+            #btn-enter {
+                left: 32.49%;
+                top: 83.21%;
+                width: 35.87%;
+                height: 5.01%;
+            }
+            #btn-cancel {
+                left: 32.42%;
+                top: 89.50%;
+                width: 35.74%;
+                height: 4.98%;
+            }
         }
 
         @keyframes shake {
@@ -424,7 +456,10 @@
 <!-- ========== パスワード画面 ========== -->
 <div id="screen-pw" class="screen">
     <div id="pw-wrap">
-        <img id="pw-img" src="/erotic-lion/img/2.key.webp" alt="">
+        <picture>
+            <source media="(max-width: 767px)" srcset="/erotic-lion/img/pass_mob.webp">
+            <img id="pw-img" src="/erotic-lion/img/2.key.webp" alt="">
+        </picture>
         <div id="pw-overlay">
             <!-- パスワード入力（画像のダイヤル表示エリアに重ねる） -->
             <input
