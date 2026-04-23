@@ -566,10 +566,14 @@
         document.getElementById('pw-error').textContent = '';
     }
 
-    // ── 認証処理 ──
-    function handleEnter() {
+    // ── 認証処理（SHA-256ハッシュで照合）──
+    async function handleEnter() {
         const input = document.getElementById('pw-input');
-        if (input.value === '1060') {
+        const val = input.value;
+        // パスワードをSHA-256でハッシュ化して比較（平文をソースに残さない）
+        const hash = await sha256(val);
+        const CORRECT = '8dfd13f4376053626e97eb7221d469013cae9bc031027e64f0db2ec114f8ffd9';
+        if (hash === CORRECT) {
             sessionStorage.setItem('portal_unlocked', '1');
             input.value = '';
             updateDots();
@@ -582,6 +586,12 @@
             input.value = '';
             updateDots();
         }
+    }
+
+    // SHA-256ハッシュ生成（Web Crypto API）
+    async function sha256(text) {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
     // ── TOP → PW ──
